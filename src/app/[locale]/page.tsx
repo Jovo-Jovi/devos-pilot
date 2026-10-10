@@ -28,19 +28,20 @@ export default async function LocalePage({
   return (
     <>
       <SiteHeader locale={locale} path="" libraryProfile={libraryProfile} />
-      <main>
-        <h1>{libraryName}</h1>
-        <p>{messages.site.tagline}</p>
-        <section>
-          <h2>{messages.section.hours}</h2>
+      <main className="wrap">
+        <div className="hero">
+          <h1>{libraryName}</h1>
+        </div>
+        <section aria-labelledby="hours">
+          <h2 id="hours">{messages.section.hours}</h2>
           {openingSlots.length > 0 ? (
             <OpeningHours locale={locale} slots={openingSlots} />
           ) : (
             <PendingState message={messages.state.pendingHours} />
           )}
         </section>
-        <section>
-          <h2>{messages.section.latestNotices}</h2>
+        <section aria-labelledby="latest">
+          <h2 id="latest">{messages.section.latestNotices}</h2>
           {latestNotices.length > 0 ? (
             <div className="notice-list">
               {latestNotices.map((notice) => (
@@ -55,7 +56,9 @@ export default async function LocalePage({
           ) : (
             <PendingState message={messages.state.pendingNotices} />
           )}
-          <Link href={`/${locale}/notices`}>{messages.link.allNotices}</Link>
+          <Link className="all-notices" href={`/${locale}/notices`}>
+            {messages.link.allNotices}
+          </Link>
         </section>
       </main>
       <SiteFooter locale={locale} libraryProfile={libraryProfile} />

@@ -1,14 +1,11 @@
 import type { ReactNode } from "react";
-import { IBM_Plex_Sans_Arabic } from "next/font/google";
+import { Readex_Pro, Reem_Kufi } from "next/font/google";
 import { notFound } from "next/navigation";
 import { directionOf, isLocale, locales, type Locale } from "@/i18n/config";
 import "../../styles/global.css";
 
-const plexSans = IBM_Plex_Sans_Arabic({
-  weight: ["400", "600"],
-  subsets: ["arabic", "latin"],
-  variable: "--font-sans",
-});
+const reemKufi = Reem_Kufi({ weight: ["500", "600", "700"], subsets: ["arabic", "latin"], variable: "--font-kufi" });
+const readexPro = Readex_Pro({ weight: ["400", "500", "600"], subsets: ["arabic", "latin"], variable: "--font-readex" });
 
 export function generateStaticParams(): Array<{ locale: Locale }> {
   return locales.map((locale) => ({ locale }));
@@ -24,7 +21,7 @@ export default async function LocaleLayout({
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   return (
-    <html lang={locale} dir={directionOf(locale)} className={plexSans.variable}>
+    <html lang={locale} dir={directionOf(locale)} className={`${reemKufi.variable} ${readexPro.variable}`}>
       <body>{children}</body>
     </html>
   );

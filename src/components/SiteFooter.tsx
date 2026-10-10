@@ -14,13 +14,19 @@ export function SiteFooter({
   const address =
     locale === "ar" ? libraryProfile.addressAr : libraryProfile.addressEn;
   return (
-    <footer>
-      <p>
-        {messages.footer.address} {address}
-      </p>
-      <p>
-        {messages.footer.phone} <Bidi>{libraryProfile.phone}</Bidi>
-      </p>
+    <footer className="site-footer">
+      <div className="wrap">
+        <dl>
+          <dt>{messages.footer.address}</dt>
+          <dd>{address}</dd>
+        </dl>
+        <dl>
+          <dt>{messages.footer.phone}</dt>
+          <dd>
+            <Bidi>{libraryProfile.phone}</Bidi>
+          </dd>
+        </dl>
+      </div>
     </footer>
   );
 }

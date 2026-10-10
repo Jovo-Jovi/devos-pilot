@@ -65,3 +65,11 @@ guards and tests from the tree. `docs/SCOPE.md` §4 is filled from that output. 
 security, content and i18n documents are at the delivered state. CF-003 is closed. CF-004,
 CF-005 and CF-006 are landed from the T05 verdict, and the triage table is for the human at
 G-Harden. `pnpm check` exits 0. Awaiting verdict.
+
+---
+
+## 2026-10-10 — T07 design v2 shell (builder, Grok 4.7)
+
+The home and notices pages use the v2 tokens, Reem Kufi and Readex Pro, the header, the footer
+and the page frame. Opening hours stay a table and notices stay cards, restyled on the v2 tokens
+only. `pnpm check` exits 0. Awaiting verdict.

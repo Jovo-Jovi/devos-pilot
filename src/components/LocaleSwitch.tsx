@@ -15,7 +15,7 @@ export function LocaleSwitch({
     throw new Error("locales has no other locale");
   }
   return (
-    <Link href={`/${other}${path}`} hrefLang={other} lang={other}>
+    <Link href={`/${other}${path}`} hrefLang={other} lang={other} className="switch">
       {label}
     </Link>
   );
