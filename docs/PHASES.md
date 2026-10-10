@@ -9,7 +9,7 @@ The runner reads the table below, and `guard:phases` checks it.
 
 | Task | Phase | Station | Name | Risk | Gate | Done | Verdict |
 |---|---|---|---|---|---|---|---|
-| T01 | P01 | J4 | Foundation: app shell, locales, tokens, catalogues, checks | 2 | — | [ ] | FAIL a1 — no review file |
+| T01 | P01 | J4 | Foundation: app shell, locales, tokens, catalogues, checks | 2 | — | [x] | PASS a1 — docs/reviews/T01-a1.md |
 | T02 | P01 | J4 | Security-header baseline | 3 | G-Foundation | [ ] | — |
 | T03 | P02 | J5 | Home composition: header, opening hours, footer | 2 | — | [ ] | — |
 | T04 | P02 | J5 | Library notices: home teaser and notices page | 2 | — | [ ] | — |
