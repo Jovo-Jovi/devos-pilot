@@ -39,3 +39,10 @@ The home page at `/[locale]` renders the library name, opening hours and footer 
 content files. Parsers reject invalid content at build time, and opening slots are ordered
 Sunday-first. Latest notices stay out until T04. Carry-forwards CF-001, CF-002 and CF-003 are
 landed from the T02 verdict. `pnpm check` exits 0. Awaiting verdict.
+
+---
+
+## 2026-10-10 — T04 library notices (builder, Grok 4.7)
+
+The home page shows the three newest published notices, and `/[locale]/notices` lists every
+published notice, newest first. A draft never renders. `pnpm check` exits 0. Awaiting verdict.
