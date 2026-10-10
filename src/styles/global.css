@@ -68,6 +68,20 @@ html[dir="ltr"] .track { background-image: repeating-linear-gradient(to right, v
 .closed-label { font-size: var(--text-1); color: var(--color-closed); }
 .times { grid-column: 2; font-size: var(--text-1); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; margin-block-start: var(--space-1); }
 
+/* Hero status */
+.hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); margin-block-start: var(--space-5); min-block-size: 2.25rem; }
+.status-chip {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-chip);
+  padding-block: var(--space-1); padding-inline: var(--space-3) var(--space-4); font-weight: 500;
+}
+.status-chip::before { content: ""; inline-size: 0.6rem; block-size: 0.6rem; border-radius: 50%; background: var(--color-open); }
+.status-chip.is-closed::before { background: var(--color-closed); }
+.today { color: var(--color-ink-muted); }
+.row.is-today { background: var(--color-lapis-wash); border-color: transparent; padding-inline: var(--space-2); margin-inline: calc(var(--space-2) * -1); }
+.row.is-today + .row { border-color: transparent; }
+.row.is-today .day { color: var(--color-lapis); font-weight: 600; }
+
 /* Interim until T10 (NoticeEntry replaces NoticeCard) */
 .notice-list { display: flex; flex-direction: column; gap: var(--space-5); }
 .notice-card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-stamp); padding: var(--space-4); }

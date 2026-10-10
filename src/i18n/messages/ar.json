@@ -20,6 +20,14 @@
     "pendingNotices": "لا توجد إعلانات منشورة حاليًا.",
     "closed": "مغلقة"
   },
+  "status": {
+    "openUntil": "مفتوحة الآن حتى {time}",
+    "closedOpens": "مغلقة الآن، تفتح {day} الساعة {time}"
+  },
+  "today": {
+    "label": "اليوم {day}:",
+    "closed": "اليوم {day}: مغلقة"
+  },
   "list": {
     "and": " و"
   },

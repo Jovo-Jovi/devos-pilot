@@ -9,6 +9,7 @@ import {
 import type { Locale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { Bidi } from "./Bidi";
+import { TodayRow } from "./TodayRow";
 
 export function Timetable({
   locale,
@@ -40,7 +41,7 @@ export function Timetable({
         const dayName =
           messages.days[String(day.dayOfWeek) as keyof typeof messages.days];
         return (
-          <div className="row" key={day.dayOfWeek}>
+          <TodayRow key={day.dayOfWeek} dayOfWeek={day.dayOfWeek}>
             <div className="day">
               {dayName}
               {day.slots.map((slot) => {
@@ -75,7 +76,7 @@ export function Timetable({
                 <span className="closed-label">{messages.state.closed}</span>
               )}
             </div>
-          </div>
+          </TodayRow>
         );
       })}
     </div>

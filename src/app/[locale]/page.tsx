@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { NoticeCard } from "@/components/NoticeCard";
+import { StatusChip } from "@/components/StatusChip";
+import { TodayLine } from "@/components/TodayLine";
 import { Timetable } from "@/components/Timetable";
 import { PendingState } from "@/components/PendingState";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -31,6 +33,10 @@ export default async function LocalePage({
       <main className="wrap">
         <div className="hero">
           <h1>{libraryName}</h1>
+          <div className="hero-meta">
+            <StatusChip locale={locale} slots={openingSlots} />
+            <TodayLine locale={locale} slots={openingSlots} />
+          </div>
         </div>
         <section aria-labelledby="hours">
           <h2 id="hours">{messages.section.hours}</h2>

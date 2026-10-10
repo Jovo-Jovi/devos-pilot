@@ -82,3 +82,12 @@ only. `pnpm check` exits 0. Awaiting verdict.
 with lapis bars on an 08:00–22:00 axis placed by logical properties so Arabic mirrors. Bar
 placement is a pure function with six unit tests. There is no today highlight (T09). `pnpm check`
 exits 0. Awaiting verdict.
+
+---
+
+## 2026-10-10 — T09 design v2 hero (builder, Grok 4.7)
+
+The home hero shows an open-now status chip and a today line, and the timetable highlights
+today's row. All three are computed on the client in Africa/Cairo after hydration and render
+nothing on the server. The time logic is pure and unit-tested at fixed instants. `pnpm check`
+exits 0. Awaiting verdict.

@@ -20,6 +20,14 @@
     "pendingNotices": "There are no published notices right now.",
     "closed": "Closed"
   },
+  "status": {
+    "openUntil": "Open now, until {time}",
+    "closedOpens": "Closed now. Opens {day} at {time}"
+  },
+  "today": {
+    "label": "Today, {day}:",
+    "closed": "Today, {day}: closed"
+  },
   "list": {
     "and": ", "
   },
