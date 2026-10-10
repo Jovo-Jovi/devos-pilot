@@ -24,8 +24,8 @@ export default async function NoticesPage({
         path="/notices"
         libraryProfile={libraryProfile}
       />
-      <main>
-        <h1>{messages.nav.notices}</h1>
+      <main className="wrap">
+        <h1 className="page-title">{messages.nav.notices}</h1>
         {published.length > 0 ? (
           <div className="notice-list">
             {published.map((notice) => (

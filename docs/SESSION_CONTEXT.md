@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P03 Freeze and hardening (J9) · **Last verdict:** T05 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-005, CF-006
+**Phase:** P04 Design v2 (J5) · **Last verdict:** T06 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-005, CF-006
 
 ## Done steps
 
@@ -12,8 +12,9 @@
 | T03 | Home composition: header, opening hours, footer | PASS a1 — docs/reviews/T03-a1.md |
 | T04 | Library notices: home teaser and notices page | PASS a1 — docs/reviews/T04-a1.md |
 | T05 | Rendered evidence in both locales (Playwright) | PASS a1 — docs/reviews/T05-a1.md |
-| T06 | Inventory script and delivered-state documents | built — awaiting verdict |
+| T06 | Inventory script and delivered-state documents | PASS a1 — docs/reviews/T06-a1.md |
+| T07 | Design v2 shell: tokens, faces, header, footer, page frame | built — awaiting verdict |
 
 ## Next action
 
-T06 is built on `task/T06` and awaiting the reviewer's verdict. On PASS the cycle stops at gate G-Harden for the human to sign the triage in `docs/method/CARRY_FORWARDS.md`.
+T07 is built on `task/T07` and awaiting the reviewer's verdict. On PASS the next task is T08 (design v2 timetable).

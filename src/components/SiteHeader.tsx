@@ -17,17 +17,24 @@ export function SiteHeader({
   const libraryName =
     locale === "ar" ? libraryProfile.nameAr : libraryProfile.nameEn;
   return (
-    <header>
-      <p>{libraryName}</p>
-      <nav>
-        <Link href={`/${locale}`}>{messages.nav.home}</Link>{" "}
-        <Link href={`/${locale}/notices`}>{messages.nav.notices}</Link>{" "}
-        <LocaleSwitch
-          locale={locale}
-          path={path}
-          label={messages.nav.switchTo}
-        />
-      </nav>
+    <header className="site-header">
+      <div className="wrap">
+        <Link className="brand" href={`/${locale}`}>
+          {libraryName}
+        </Link>
+        <nav className="nav">
+          <Link href={`/${locale}`} aria-current={path === "" ? "page" : undefined}>
+            {messages.nav.home}
+          </Link>
+          <Link
+            href={`/${locale}/notices`}
+            aria-current={path === "/notices" ? "page" : undefined}
+          >
+            {messages.nav.notices}
+          </Link>
+          <LocaleSwitch locale={locale} path={path} label={messages.nav.switchTo} />
+        </nav>
+      </div>
     </header>
   );
 }

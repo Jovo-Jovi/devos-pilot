@@ -1,21 +1,30 @@
 :root {
-  --color-ink: #1d2433;
-  --color-ink-muted: #5b6475;
-  --color-paper: #fbf8f2;
+  --color-paper: #edf1f3;
   --color-surface: #ffffff;
-  --color-accent: #0f6e5c;
-  --color-accent-ink: #ffffff;
-  --color-line: #e4ddd0;
-  --color-pending: #8a6d1f;
+  --color-ink: #172a3a;
+  --color-ink-muted: #586776;
+  --color-lapis: #2747a8;
+  --color-lapis-wash: #dde5f6;
+  --color-stamp: #b5333f;
+  --color-open: #1f7a52;
+  --color-closed: #8a4b12;
+  --color-line: #d3dce2;
 
-  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
-  --space-5: 24px; --space-6: 32px; --space-7: 48px;
+  --font-display: var(--font-kufi), var(--font-readex), system-ui, sans-serif;
+  --font-text: var(--font-readex), system-ui, sans-serif;
 
-  --radius-1: 6px; --radius-2: 12px;
+  --text-1: 0.875rem;  --text-2: 1.0625rem; --text-3: 1.375rem;
+  --text-4: 1.875rem;  --text-5: 2.75rem;   --text-6: 3.75rem;
+  --leading-text: 1.8; --leading-text-latin: 1.6; --leading-tight: 1.2;
 
-  --font-body: var(--font-sans), system-ui, sans-serif;
-  --text-1: 0.875rem; --text-2: 1rem; --text-3: 1.25rem; --text-4: 1.75rem; --text-5: 2.25rem;
-  --leading: 1.6;
+  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.5rem;  --space-6: 2rem;   --space-7: 3rem;    --space-8: 4.5rem;
 
-  --content-max: 960px;
+  --radius-bar: 999px; --radius-stamp: 0.625rem; --radius-chip: 999px;
+  --content-max: 56rem;
+  --bar-height: 0.875rem;
+}
+
+@media (max-width: 40rem) {
+  :root { --text-6: 2.625rem; --text-4: 1.5rem; }
 }

@@ -1,13 +1,10 @@
-import { IBM_Plex_Sans_Arabic } from "next/font/google";
+import { Readex_Pro, Reem_Kufi } from "next/font/google";
 import { defaultLocale, directionOf } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import "../styles/global.css";
 
-const plexSans = IBM_Plex_Sans_Arabic({
-  weight: ["400", "600"],
-  subsets: ["arabic", "latin"],
-  variable: "--font-sans",
-});
+const reemKufi = Reem_Kufi({ weight: ["500", "600", "700"], subsets: ["arabic", "latin"], variable: "--font-kufi" });
+const readexPro = Readex_Pro({ weight: ["400", "500", "600"], subsets: ["arabic", "latin"], variable: "--font-readex" });
 
 export default function GlobalNotFound() {
   const messages = getMessages(defaultLocale);
@@ -15,7 +12,7 @@ export default function GlobalNotFound() {
     <html
       lang={defaultLocale}
       dir={directionOf(defaultLocale)}
-      className={plexSans.variable}
+      className={`${reemKufi.variable} ${readexPro.variable}`}
     >
       <body>
         <p>{messages.site.productName}</p>
