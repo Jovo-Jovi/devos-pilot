@@ -30,3 +30,12 @@ verdict.
 `Strict-Transport-Security` is `max-age=86400` with no `includeSubDomains`. `src/security/headers.test.ts`
 imports that array. Nonce-based CSP is a carry-forward candidate, not implemented. `pnpm check` exits 0.
 Awaiting verdict.
+
+---
+
+## 2026-10-10 — T03 home composition (builder, Grok 4.7)
+
+The home page at `/[locale]` renders the library name, opening hours and footer from the signed
+content files. Parsers reject invalid content at build time, and opening slots are ordered
+Sunday-first. Latest notices stay out until T04. Carry-forwards CF-001, CF-002 and CF-003 are
+landed from the T02 verdict. `pnpm check` exits 0. Awaiting verdict.
