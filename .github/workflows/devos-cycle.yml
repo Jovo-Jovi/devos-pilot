@@ -65,6 +65,8 @@ jobs:
       builder_model: ${{ steps.t.outputs.builder_model }}
       reviewer_model: ${{ steps.t.outputs.reviewer_model }}
       reviewer_max_turns: ${{ steps.t.outputs.reviewer_max_turns }}
+      reviewer_effort: ${{ steps.t.outputs.reviewer_effort }}
+      reviewer_fallback: ${{ steps.t.outputs.reviewer_fallback }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -134,7 +136,12 @@ jobs:
           test -f "docs/fences/$TASK.md" || { echo "::error::docs/fences/$TASK.md does not exist: the reviewer has not issued this fence"; exit 1; }
           mkdir -p .devos/logs
           cp devos/ci/mcp.ci.json .cursor/mcp.json
-          if [ -f package.json ]; then pnpm install --frozen-lockfile > .devos/logs/install-before.log 2>&1 || echo "::warning::pnpm install (before build) failed; the builder will see it"; fi
+          if [ -f package.json ]; then
+            # Visible progress and a hard limit, so a slow registry never looks like a frozen step.
+            if ! timeout 600 pnpm install --frozen-lockfile --reporter=append-only 2>&1 | tee .devos/logs/install-before.log | grep -E "Progress|Done in|ERR" | tail -n 20; then
+              echo "::warning::pnpm install (before build) failed or took over 10 minutes; the builder will see it"
+            fi
+          fi
 
       - name: Resolve the builder model (fence effort/fast, checked against `agent models`)
         id: bm
@@ -192,6 +199,7 @@ jobs:
             echo "- Remote comparison: \`git ls-remote origin refs/heads/$BR\` = \`$REMOTE_SHA\` → $([ "$LOCAL" = "$REMOTE_SHA" ] && echo MATCH || echo MISMATCH)"
             echo "- Builder: \`${{ steps.bm.outputs.model }}\` (effort ${{ steps.bm.outputs.effort }}, fast ${{ steps.bm.outputs.fast }}, chosen by ${{ steps.bm.outputs.source }}) ${{ steps.bm.outputs.note }}"
             echo "- Builder exit code: ${{ steps.builder.outputs.exit || 'not run (review-only re-run)' }}"
+            echo "- Grok ids offered by \`agent models\`: $( (grep -oE 'grok-[A-Za-z0-9.-]+' .devos/models.txt 2>/dev/null || true) | sort -u | tr '\n' ' ')"
             echo
             echo "## Changed files vs main"
             echo '```'
@@ -247,7 +255,10 @@ jobs:
       - name: Checks (evidence for the reviewer)
         if: steps.bs.outputs.state == 'ok'
         run: |
-          if [ -f package.json ]; then pnpm install --frozen-lockfile > .devos/logs/install.log 2>&1 || echo "::warning::pnpm install --frozen-lockfile failed"; fi
+          if [ -f package.json ]; then
+            timeout 600 pnpm install --frozen-lockfile --reporter=append-only > .devos/logs/install.log 2>&1 || echo "::warning::pnpm install --frozen-lockfile failed or took over 10 minutes"
+            tail -n 3 .devos/logs/install.log
+          fi
           node scripts/devos/run-checks.mjs
 
       - name: Vercel preview of this attempt (OD-08 §2)
@@ -306,6 +317,8 @@ jobs:
           APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MODEL: ${{ needs.resolve.outputs.reviewer_model }}
           TURNS: ${{ needs.resolve.outputs.reviewer_max_turns }}
+          EFFORT: ${{ needs.resolve.outputs.reviewer_effort }}
+          FALLBACK: ${{ needs.resolve.outputs.reviewer_fallback }}
           DEVOS_PREVIEW_URL: ${{ steps.preview.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           DEVOS_BUILDER_MODEL: ${{ steps.bm.outputs.model }}
@@ -319,6 +332,8 @@ jobs:
           set +e
           claude -p "$(cat .devos/reviewer-prompt.md)" \
             --model "$MODEL" \
+            --effort "${EFFORT:-high}" \
+            ${FALLBACK:+--fallback-model "$FALLBACK"} \
             --output-format json \
             --json-schema "$(cat devos/schemas/verdict.schema.json)" \
             --permission-mode dontAsk \

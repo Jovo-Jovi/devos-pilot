@@ -7,7 +7,7 @@
 //   --dry-run  render prompts and print the commands without calling the agents
 import { spawnSync } from "node:child_process";
 import { writeFileSync, existsSync, copyFileSync, mkdirSync, readFileSync } from "node:fs";
-import { P, git, config, parsePhases, nextOpenTask, isHumanGate, reviewerModel, changedPaths } from "./lib.mjs";
+import { P, git, config, parsePhases, nextOpenTask, isHumanGate, reviewerModel, reviewerEffort, changedPaths } from "./lib.mjs";
 import { renderPrompt } from "./render-prompt.mjs";
 
 const argv = process.argv.slice(2);
@@ -73,7 +73,7 @@ function cycleOnce(task, attempt) {
   node("scripts/devos/run-checks.mjs");
   let reviewerPrompt = renderPrompt("reviewer", task, attempt).replaceAll(`origin/${BASE}`, BASE);
   const schema = readFileSync(P("devos/schemas/verdict.schema.json"), "utf8");
-  const args = ["-p", "Follow the instructions in .devos/reviewer-prompt.md exactly.", "--model", reviewerModel(row, cfg),
+  const args = ["-p", "Follow the instructions in .devos/reviewer-prompt.md exactly.", "--model", reviewerModel(row, cfg), "--effort", reviewerEffort(row, cfg),
     "--output-format", "json", "--permission-mode", "dontAsk", "--max-turns", String(cfg.reviewer.max_turns),
     "--allowedTools", "Read,Glob,Grep,Write,Edit,Bash",
     "--disallowedTools", "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)"];

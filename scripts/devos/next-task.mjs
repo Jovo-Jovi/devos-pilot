@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Resolve which task the runner works on, and everything the workflow needs to know about it.
 // Usage: node scripts/devos/next-task.mjs [--task T01] [--attempt 1] [--revision true]
-import { parsePhases, nextOpenTask, isHumanGate, reviewerModel, taskAfter, config, emit, fail } from "./lib.mjs";
+import { parsePhases, nextOpenTask, isHumanGate, reviewerModel, reviewerEffort, taskAfter, config, emit, fail } from "./lib.mjs";
 
 const arg = (name) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -45,5 +45,7 @@ emit({
   builder_model: cfg.builder.model,
   reviewer_model: reviewerModel(row, cfg),
   reviewer_max_turns: cfg.reviewer.max_turns,
+  reviewer_effort: reviewerEffort(row, cfg),
+  reviewer_fallback: cfg.reviewer.fallback_model && cfg.reviewer.fallback_model !== reviewerModel(row, cfg) ? cfg.reviewer.fallback_model : "",
   next_task: next ? next.task : "",
 });

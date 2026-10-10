@@ -56,6 +56,12 @@ export function reviewerModel(row, cfg = config()) {
   return cfg.reviewer.model_by_risk[String(row.risk)] ?? cfg.reviewer.gate_model;
 }
 
+/** Claude Code effort for the reviewer (Opus/Sonnet 5.5 default to medium, so it is always set). */
+export function reviewerEffort(row, cfg = config()) {
+  if (row.gate && row.gate !== "—" && row.gate !== "-") return cfg.reviewer.gate_effort ?? "xhigh";
+  return cfg.reviewer.effort_by_risk?.[String(row.risk)] ?? "high";
+}
+
 export function nextOpenTask(rows) {
   return rows.find((r) => !r.done) ?? null;
 }

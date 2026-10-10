@@ -15,7 +15,8 @@
       "2": "high",
       "3": "high"
     },
-    "effort_note": "The reviewer sets 'Effort: low|medium|high|xhigh' and 'Fast: yes|no' in each fence header; scripts/devos/builder-model.mjs turns that into a Cursor model id (grok-4.7-<effort>[-fast]) and checks it against `agent models`, falling back to `model`."
+    "effort_note": "The reviewer sets 'Effort: low|medium|high|xhigh' and 'Fast: yes|no' in each fence header; scripts/devos/builder-model.mjs turns that into a Cursor model id (grok-4.7-<effort>[-fast]) and checks it against `agent models`, falling back to `model`.",
+    "model_note": "Cursor documents only the family id grok-4.7 (default effort high, Fast the default speed on Pro). The effort/fast ids the CLI accepts come from `agent models` on your account; each run records the Grok ids it offered in the PR's runner evidence."
   },
   "reviewer": {
     "cli": "claude",
@@ -26,7 +27,16 @@
     },
     "gate_model": "claude-opus-5-5",
     "max_turns": 80,
-    "timeout_minutes": 40
+    "timeout_minutes": 40,
+    "effort_by_risk": {
+      "1": "high",
+      "2": "high",
+      "3": "xhigh"
+    },
+    "gate_effort": "xhigh",
+    "intake_effort": "xhigh",
+    "fallback_model": "claude-sonnet-5-5",
+    "model_note": "Official Claude ids (claude-opus-5-5, claude-sonnet-5-5). Opus 5.5 and Sonnet 5.5 default to medium effort in Claude Code, so the runner always passes --effort. --fallback-model only applies when the primary is overloaded or unavailable, never on usage limits."
   },
   "required_checks": [
     "guards",
