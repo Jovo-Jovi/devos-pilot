@@ -6,7 +6,7 @@
   "max_attempts": 3,
   "builder": {
     "cli": "agent",
-    "model": "grok-4.7",
+    "model": "grok-4.7-high",
     "effort": "high",
     "effort_note": "Grok 4.7's default effort is high; the Cursor CLI has no effort flag. If `agent models` lists an effort-suffixed id (e.g. grok-4.7-high), put that id in `model`.",
     "timeout_minutes": 75
