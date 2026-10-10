@@ -55,3 +55,13 @@ Playwright runs the production build in both locales and saves four screenshots 
 `.devos/screenshots/`. Pending states are proved by a unit fixture, because the content is bundled
 at build time and a built page cannot be emptied from a browser test. `pnpm check` exits 0.
 Awaiting verdict.
+
+---
+
+## 2026-10-10 — T06 inventory script and delivered-state documents (builder, Grok 4.7)
+
+`scripts/inventory.mjs` prints routes, redirects, components, catalogue keys, content counts,
+guards and tests from the tree. `docs/SCOPE.md` §4 is filled from that output. The design,
+security, content and i18n documents are at the delivered state. CF-003 is closed. CF-004,
+CF-005 and CF-006 are landed from the T05 verdict, and the triage table is for the human at
+G-Harden. `pnpm check` exits 0. Awaiting verdict.
