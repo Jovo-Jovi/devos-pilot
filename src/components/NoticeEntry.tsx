@@ -1,8 +1,8 @@
 import type { LibraryNotice } from "@/content/schema";
 import type { Locale } from "@/i18n/config";
-import { Bidi } from "./Bidi";
+import { DateStamp } from "./DateStamp";
 
-export function NoticeCard({
+export function NoticeEntry({
   locale,
   notice,
   headingLevel,
@@ -15,12 +15,12 @@ export function NoticeCard({
   const body = locale === "ar" ? notice.bodyAr : notice.bodyEn;
   const Heading = headingLevel;
   return (
-    <article className="notice-card">
-      <Heading>{title}</Heading>
-      <p>
-        <Bidi>{notice.publishedOn}</Bidi>
-      </p>
-      <p>{body}</p>
-    </article>
+    <li className="notice">
+      <DateStamp locale={locale} publishedOn={notice.publishedOn} />
+      <div>
+        <Heading>{title}</Heading>
+        <p>{body}</p>
+      </div>
+    </li>
   );
 }
