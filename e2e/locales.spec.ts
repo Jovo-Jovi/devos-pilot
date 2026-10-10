@@ -64,7 +64,7 @@ test("footer phone is inside bdi in both locales", async ({ page }) => {
 test("opening-hour times are inside bdi in both locales", async ({ page }) => {
   for (const locale of ["ar", "en"] as const) {
     await page.goto(`/${locale}`);
-    const cells = page.locator("table td bdi");
+    const cells = page.locator(".times bdi");
     await expect(cells).toHaveCount(slots.length);
     const texts = await cells.allTextContents();
     for (const text of texts) {

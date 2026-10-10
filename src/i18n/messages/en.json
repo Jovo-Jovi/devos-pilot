@@ -17,7 +17,14 @@
   },
   "state": {
     "pendingHours": "Opening hours will be published soon.",
-    "pendingNotices": "There are no published notices right now."
+    "pendingNotices": "There are no published notices right now.",
+    "closed": "Closed"
+  },
+  "list": {
+    "and": ", "
+  },
+  "timetable": {
+    "label": "Weekly opening timetable"
   },
   "footer": {
     "address": "Address",

@@ -17,7 +17,14 @@
   },
   "state": {
     "pendingHours": "ستُنشر مواعيد العمل قريبًا.",
-    "pendingNotices": "لا توجد إعلانات منشورة حاليًا."
+    "pendingNotices": "لا توجد إعلانات منشورة حاليًا.",
+    "closed": "مغلقة"
+  },
+  "list": {
+    "and": " و"
+  },
+  "timetable": {
+    "label": "جدول المواعيد الأسبوعي"
   },
   "footer": {
     "address": "العنوان",
