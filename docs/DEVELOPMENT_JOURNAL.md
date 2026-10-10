@@ -73,3 +73,12 @@ G-Harden. `pnpm check` exits 0. Awaiting verdict.
 The home and notices pages use the v2 tokens, Reem Kufi and Readex Pro, the header, the footer
 and the page frame. Opening hours stay a table and notices stay cards, restyled on the v2 tokens
 only. `pnpm check` exits 0. Awaiting verdict.
+
+---
+
+## 2026-10-10 — T08 design v2 timetable (builder, Grok 4.7)
+
+`Timetable` replaces `OpeningHours` on the home page: one row per day from Saturday to Friday,
+with lapis bars on an 08:00–22:00 axis placed by logical properties so Arabic mirrors. Bar
+placement is a pure function with six unit tests. There is no today highlight (T09). `pnpm check`
+exits 0. Awaiting verdict.

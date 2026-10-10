@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { NoticeCard } from "@/components/NoticeCard";
-import { OpeningHours } from "@/components/OpeningHours";
+import { Timetable } from "@/components/Timetable";
 import { PendingState } from "@/components/PendingState";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -35,7 +35,7 @@ export default async function LocalePage({
         <section aria-labelledby="hours">
           <h2 id="hours">{messages.section.hours}</h2>
           {openingSlots.length > 0 ? (
-            <OpeningHours locale={locale} slots={openingSlots} />
+            <Timetable locale={locale} slots={openingSlots} />
           ) : (
             <PendingState message={messages.state.pendingHours} />
           )}
