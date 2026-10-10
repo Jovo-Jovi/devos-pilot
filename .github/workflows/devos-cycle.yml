@@ -193,6 +193,7 @@ jobs:
           if [ "$REVIEW_ONLY" != "true" ]; then
             git add -A
             git commit --allow-empty -m "$TASK a$ATTEMPT: builder (${{ steps.bm.outputs.model }}, effort ${{ steps.bm.outputs.effort }}, fast ${{ steps.bm.outputs.fast }})"
+            bash scripts/devos/sync-main.sh "$REMOTE"
             git push "$REMOTE" "HEAD:refs/heads/$BR"
           fi
           LOCAL=$(git rev-parse HEAD)
@@ -375,6 +376,7 @@ jobs:
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "$TASK a$ATTEMPT: review — ${{ steps.v.outputs.verdict }} (${{ steps.v.outputs.action }})"
+            bash scripts/devos/sync-main.sh "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
             git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$BR"
           fi
           if [ -z "$PRN" ]; then
