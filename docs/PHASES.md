@@ -11,7 +11,7 @@ The runner reads the table below, and `guard:phases` checks it.
 |---|---|---|---|---|---|---|---|
 | T01 | P01 | J4 | Foundation: app shell, locales, tokens, catalogues, checks | 2 | — | [x] | PASS a1 — docs/reviews/T01-a1.md |
 | T02 | P01 | J4 | Security-header baseline | 3 | G-Foundation | [x] | PASS a1 — docs/reviews/T02-a1.md |
-| T03 | P02 | J5 | Home composition: header, opening hours, footer | 2 | — | [ ] | — |
+| T03 | P02 | J5 | Home composition: header, opening hours, footer | 2 | — | [x] | PASS a1 — docs/reviews/T03-a1.md |
 | T04 | P02 | J5 | Library notices: home teaser and notices page | 2 | — | [ ] | — |
 | T05 | P02 | J5 | Rendered evidence in both locales (Playwright) | 2 | G-Public | [ ] | — |
 | T06 | P03 | J9 | Inventory script and delivered-state documents | 1 | G-Harden | [ ] | — |
