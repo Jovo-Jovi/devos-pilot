@@ -65,7 +65,9 @@ function cycleOnce(task, attempt) {
   let reviewerPrompt = renderPrompt("reviewer", task, attempt).replaceAll(`origin/${BASE}`, BASE);
   const schema = readFileSync(P("devos/schemas/verdict.schema.json"), "utf8");
   const args = ["-p", "Follow the instructions in .devos/reviewer-prompt.md exactly.", "--model", reviewerModel(row, cfg),
-    "--output-format", "json", "--permission-mode", "dontAsk", "--max-turns", String(cfg.reviewer.max_turns)];
+    "--output-format", "json", "--permission-mode", "dontAsk", "--max-turns", String(cfg.reviewer.max_turns),
+    "--allowedTools", "Read,Glob,Grep,Write,Edit,Bash",
+    "--disallowedTools", "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)"];
   if (WIN) reviewerPrompt += `\n\nEnd your final answer with only a JSON object that satisfies devos/schemas/verdict.schema.json.\n`;
   else args.push("--json-schema", schema);
   writeFileSync(P(".devos/reviewer-prompt.md"), reviewerPrompt);

@@ -3,7 +3,7 @@
 #   Claude reviews from the branch → surface guard → verdict.mjs decides → merge | human gate | retry | halt
 # Start it from Actions → devos-cycle → Run workflow (inputs blank = next open task).
 name: devos-cycle
-run-name: "devos ${{ inputs.task || 'next' }} · attempt ${{ inputs.attempt || '1' }}"
+run-name: "devos ${{ inputs.task || 'next' }} · attempt ${{ inputs.attempt || '1' }}${{ inputs.review_only && ' · review only' || '' }}"
 
 on:
   workflow_dispatch:
@@ -16,6 +16,11 @@ on:
         description: "Attempt number (1 for a first run)"
         required: false
         default: "1"
+      review_only:
+        description: "Re-run only the reviewer on the existing task branch (after a reviewer/infra failure)"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: devos-cycle
@@ -67,6 +72,7 @@ jobs:
       ATTEMPT: ${{ needs.resolve.outputs.attempt }}
       BR: ${{ needs.resolve.outputs.branch }}
       REPO: ${{ github.repository }}
+      REVIEW_ONLY: ${{ inputs.review_only && 'true' || 'false' }}
     steps:
       # The agents never see a git credential: checkout keeps none, and only the push and gh
       # steps below receive a token (PR-04).
@@ -94,6 +100,8 @@ jobs:
           if git rev-parse --verify --quiet "origin/$BR" >/dev/null; then
             git checkout -B "$BR" "origin/$BR"
             git merge-base --is-ancestor origin/main HEAD || git merge --no-edit origin/main
+          elif [ "$REVIEW_ONLY" = "true" ]; then
+            echo "::error::review_only needs an existing branch $BR"; exit 1
           else
             git checkout -b "$BR"
           fi
@@ -105,6 +113,7 @@ jobs:
 
       - name: Builder — Cursor CLI
         id: builder
+        if: env.REVIEW_ONLY != 'true'
         timeout-minutes: 80
         env:
           CURSOR_KEY: ${{ secrets.CURSOR_API_KEY }}
@@ -121,17 +130,20 @@ jobs:
           tail -c 2000 .devos/builder.err || true
 
       - name: Guard — builder surface
+        if: env.REVIEW_ONLY != 'true'
         run: node scripts/devos/guard-surfaces.mjs builder
 
-      - name: Commit and push the builder's work
+      - name: Commit and push the builder's work, write runner evidence
         env:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
         run: |
           rm -f .cursor/mcp.json
-          git add -A
-          git commit --allow-empty -m "$TASK a$ATTEMPT: builder (${{ needs.resolve.outputs.builder_model }})"
           REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
-          git push "$REMOTE" "HEAD:refs/heads/$BR"
+          if [ "$REVIEW_ONLY" != "true" ]; then
+            git add -A
+            git commit --allow-empty -m "$TASK a$ATTEMPT: builder (${{ needs.resolve.outputs.builder_model }})"
+            git push "$REMOTE" "HEAD:refs/heads/$BR"
+          fi
           LOCAL=$(git rev-parse HEAD)
           REMOTE_SHA=$(git ls-remote "$REMOTE" "refs/heads/$BR" | cut -f1)
           {
@@ -140,7 +152,7 @@ jobs:
             echo "- Branch: \`$BR\`"
             echo "- HEAD: \`$LOCAL\`"
             echo "- Remote comparison: \`git ls-remote origin refs/heads/$BR\` = \`$REMOTE_SHA\` → $([ "$LOCAL" = "$REMOTE_SHA" ] && echo MATCH || echo MISMATCH)"
-            echo "- Builder exit code: ${{ steps.builder.outputs.exit }}"
+            echo "- Builder exit code: ${{ steps.builder.outputs.exit || 'not run (review-only re-run)' }}"
             echo
             echo "## Changed files vs main"
             echo '```'
@@ -162,6 +174,7 @@ jobs:
               --body "Dev OS task **$TASK** (risk $RISK). Fence: \`docs/fences/$TASK.md\`. Built by Cursor, reviewed by Claude; the verdict is posted below by the runner." \
               --label devos --label "risk-$RISK"
           fi
+          gh pr edit "$BR" --repo "$REPO" --remove-label "devos:halted" >/dev/null 2>&1 || true
 
       - name: Checks (evidence for the reviewer)
         run: |
@@ -187,9 +200,13 @@ jobs:
             --output-format json \
             --json-schema "$(cat devos/schemas/verdict.schema.json)" \
             --permission-mode dontAsk \
+            --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
+            --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
             --max-turns "$TURNS" > .devos/reviewer.json 2> .devos/reviewer.err
           echo "reviewer exit code: $?"
           tail -c 2000 .devos/reviewer.err || true
+          # Surface any tool calls the permission layer refused, so a denial is never silent.
+          node -e 'try{const r=require("./.devos/reviewer.json");const d=r.permission_denials||[];console.log(`reviewer permission denials: ${d.length}`);for(const x of d.slice(0,20))console.log(" -",JSON.stringify(x).slice(0,300))}catch(e){console.log("reviewer.json unreadable:",e.message)}' 
 
       - name: Guard — reviewer surface
         run: node scripts/devos/guard-surfaces.mjs reviewer

@@ -45,9 +45,8 @@ after the push, changes are new ODs.
    agent login
    agent models
    ```
-   Look for Grok 4.7. The docs list its id as `grok-4.7` with **high as the default effort**, and
-   the CLI has no effort flag. If `agent models` shows a different id (for example an effort-suffixed
-   `grok-4.7-high`), put that id in `devos.config.json` → `builder.model` and commit it.
+   Look for Grok 4.7. `agent models` lists it with the effort in the id: use **`grok-4.7-high`**
+   in `devos.config.json` → `builder.model` (the CLI has no separate effort flag).
 3. **Create a Cursor API key** for CI in the Cursor dashboard (cursor.com → Dashboard → API keys /
    Integrations → new user API key). Copy it for step 4.
 4. **Open the folder in the Cursor IDE** (for manual work and watching):
@@ -144,6 +143,12 @@ dispatches the reissued fence (attempt 2, then 3) on the same branch.
   the workflow.
 - **After a halt:** read the comment, fix the cause (or edit the fence yourself on the branch), then
   run the workflow with `task=Tnn` and `attempt=1`. It continues on the same branch.
+- **Reviewer or infrastructure failure** (no verdict file, auth error, refused tool calls): run the
+  workflow with `task=Tnn`, the same `attempt`, and **`review_only` ticked**. Only Claude runs again;
+  the builder's commit is kept (PR-11).
+- **"1 workflow awaiting approval" on a runner PR:** that is the plain `ci` workflow. GitHub holds
+  runs on PRs opened by the Actions bot until someone approves them. Approving only runs the checks
+  again; the cycle already ran them, so you can approve or ignore it.
 - **Manual mode for any task** (the classic Dev OS loop): in the Cursor IDE, check out `task/Tnn`
   and send *"Read docs/SESSION_CONTEXT.md and docs/method/PRECEDENTS.md, then execute
   docs/fences/Tnn.md."* Then run `claude` in the repo and use `/devos-review Tnn`.
