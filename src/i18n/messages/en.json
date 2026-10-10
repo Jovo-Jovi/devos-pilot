@@ -1,0 +1,35 @@
+{
+  "site": {
+    "productName": "Sanad Library Notices",
+    "tagline": "Opening hours and notices"
+  },
+  "nav": {
+    "home": "Home",
+    "notices": "Notices",
+    "switchTo": "العربية"
+  },
+  "section": {
+    "hours": "Opening hours",
+    "latestNotices": "Latest notices"
+  },
+  "link": {
+    "allNotices": "All notices"
+  },
+  "state": {
+    "pendingHours": "Opening hours will be published soon.",
+    "pendingNotices": "There are no published notices right now."
+  },
+  "footer": {
+    "address": "Address",
+    "phone": "Phone"
+  },
+  "days": {
+    "0": "Sunday",
+    "1": "Monday",
+    "2": "Tuesday",
+    "3": "Wednesday",
+    "4": "Thursday",
+    "5": "Friday",
+    "6": "Saturday"
+  }
+}
