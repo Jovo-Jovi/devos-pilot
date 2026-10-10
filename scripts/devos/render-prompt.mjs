@@ -1,12 +1,38 @@
 #!/usr/bin/env node
-// Render the builder or reviewer prompt for a task attempt from devos/prompts/*.md.
-// Usage: node scripts/devos/render-prompt.mjs builder|reviewer T01 1 [--out file]
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+// Render a prompt from devos/prompts/*.md.
+// Usage: node scripts/devos/render-prompt.mjs builder|reviewer|revise Tnn attempt [--out file]
+//        node scripts/devos/render-prompt.mjs intake - - [--out file]          (OD-08 §3)
+// Environment it reads when set: DEVOS_BUILDER_MODEL, DEVOS_BUILDER_EFFORT, DEVOS_BUILDER_FAST,
+// DEVOS_PREVIEW_URL, DEVOS_ISSUE.
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { P, parsePhases, isHumanGate, taskAfter, config, fail } from "./lib.mjs";
+
+function commonVars(cfg, rows) {
+  const ids = rows.map((r) => Number(r.task.slice(1)));
+  const screens = existsSync(P(".devos/screens")) ? readdirSync(P(".devos/screens")).filter((f) => f.endsWith(".png")) : [];
+  const env = process.env;
+  return {
+    BASE: cfg.base_branch,
+    MAX_ATTEMPTS: String(cfg.max_attempts),
+    TODAY: new Date().toISOString().slice(0, 10),
+    NEXT_ID: `T${String((ids.length ? Math.max(...ids) : 0) + 1).padStart(2, "0")}`,
+    ISSUE: env.DEVOS_ISSUE ?? "",
+    BUILDER_MODEL: env.DEVOS_BUILDER_MODEL || cfg.builder.model,
+    BUILDER_EFFORT: env.DEVOS_BUILDER_EFFORT || cfg.builder.default_effort || "high",
+    BUILDER_FAST: env.DEVOS_BUILDER_FAST || "no",
+    PREVIEW_LINE: env.DEVOS_PREVIEW_URL
+      ? `- Preview deployment of this branch: ${env.DEVOS_PREVIEW_URL} (check it with \`node scripts/devos/probe.mjs --base ${env.DEVOS_PREVIEW_URL} /ar /en\`).\n`
+      : "",
+    SCREENS_LINE: screens.length
+      ? `- \`.devos/screens/\`: ${screens.length} full-page screenshots (desktop 1280 and phone 390) of this branch. **Look at them with the Read tool.**\n`
+      : "",
+  };
+}
 
 export function renderPrompt(role, task, attempt) {
   const cfg = config();
   const { rows } = parsePhases();
+  if (role === "intake") return fill(role, commonVars(cfg, rows));
   const row = rows.find((r) => r.task === task);
   if (!row) fail(`render-prompt: ${task} not in docs/PHASES.md`);
   const next = taskAfter(rows, task);
@@ -14,19 +40,18 @@ export function renderPrompt(role, task, attempt) {
   const hasPrev = attempt > 1 && existsSync(P(prevReview));
 
   const vars = {
+    ...commonVars(cfg, rows),
     TASK: task,
     NAME: row.name,
     RISK: String(row.risk),
     GATE: row.gate,
     ATTEMPT: String(attempt),
     ATTEMPT_NEXT: String(attempt + 1),
-    MAX_ATTEMPTS: String(cfg.max_attempts),
+    PREV_ATTEMPT: String(attempt - 1),
     BRANCH: `${cfg.branch_prefix}${task}`,
-    BASE: cfg.base_branch,
     NEXT_TASK: next ? next.task : "",
     NEXT_TASK_OR_NONE: next ? next.task : "none (last task)",
     HUMAN_GATE: isHumanGate(row) ? "yes — the PR waits for the human's merge" : "no — the runner merges a PASS",
-    BUILDER_MODEL: cfg.builder.model,
     REISSUE_BLOCK: hasPrev
       ? `\nThis is a REISSUE. Read the previous verdict \`${prevReview}\` and the fence's "Attempt ${attempt} focus" section first. The earlier attempt's work is already in the tree on this branch: verify it against the Done-when list and change only what fails. Never redo or duplicate it.\n`
       : "",
@@ -36,18 +61,21 @@ export function renderPrompt(role, task, attempt) {
       : "",
   };
 
+  return fill(role, vars);
+}
+
+function fill(role, vars) {
   const tpl = readFileSync(P(`devos/prompts/${role}.md`), "utf8");
-  const out = tpl.replace(/\{\{([A-Z0-9_]+)\}\}/g, (_, k) => {
+  return tpl.replace(/\{\{([A-Z0-9_]+)\}\}/g, (_, k) => {
     if (!(k in vars)) fail(`render-prompt: unknown placeholder {{${k}}} in devos/prompts/${role}.md`);
     return vars[k];
   });
-  return out;
 }
 
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("render-prompt.mjs")) {
   const [role, task, attemptRaw] = process.argv.slice(2);
-  if (!["builder", "reviewer"].includes(role) || !/^T\d{2}$/.test(task ?? "")) {
-    fail("usage: render-prompt.mjs builder|reviewer Tnn attempt [--out file]", 2);
+  if (!["builder", "reviewer", "revise", "intake"].includes(role) || (role !== "intake" && !/^T\d{2}$/.test(task ?? ""))) {
+    fail("usage: render-prompt.mjs builder|reviewer|revise Tnn attempt | intake - - [--out file]", 2);
   }
   const text = renderPrompt(role, task, Number(attemptRaw || "1"));
   const oi = process.argv.indexOf("--out");

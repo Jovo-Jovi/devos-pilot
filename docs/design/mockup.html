@@ -1,0 +1,233 @@
+<!doctype html>
+<!--
+  PILOT — approved design v2 mockup (OD-07). Static reference for the builder and the reviewer's
+  visual check; not application code. Open as mockup.html (Arabic) or mockup.html#en (English).
+  Fonts load from Google Fonts here only; the application self-hosts them with next/font.
+-->
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sanad Library Notices — design v2 mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600&family=Reem+Kufi:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --color-paper: #edf1f3;
+    --color-surface: #ffffff;
+    --color-ink: #172a3a;
+    --color-ink-muted: #586776;
+    --color-lapis: #2747a8;
+    --color-lapis-wash: #dde5f6;
+    --color-stamp: #b5333f;
+    --color-open: #1f7a52;
+    --color-closed: #8a4b12;
+    --color-line: #d3dce2;
+
+    --font-display: "Reem Kufi", "Readex Pro", system-ui, sans-serif;
+    --font-text: "Readex Pro", system-ui, sans-serif;
+
+    --text-1: 0.875rem;  --text-2: 1.0625rem; --text-3: 1.375rem;
+    --text-4: 1.875rem;  --text-5: 2.75rem;   --text-6: 3.75rem;
+    --leading-text: 1.8; --leading-tight: 1.2;
+
+    --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+    --space-5: 1.5rem;  --space-6: 2rem;   --space-7: 3rem;    --space-8: 4.5rem;
+
+    --radius-bar: 999px; --radius-stamp: 0.625rem; --radius-chip: 999px;
+    --content-max: 56rem;
+    --bar-height: 0.875rem;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-text);
+    font-size: var(--text-2);
+    line-height: var(--leading-text);
+  }
+  html[lang="en"] body { line-height: 1.6; }
+  a { color: var(--color-lapis); text-underline-offset: 0.2em; }
+  bdi[dir="ltr"] { white-space: nowrap; unicode-bidi: isolate; }
+  a:focus-visible { outline: 2px solid var(--color-lapis); outline-offset: 3px; border-radius: 2px; }
+  .wrap { max-inline-size: var(--content-max); margin-inline: auto; padding-inline: var(--space-4); }
+
+  /* Header */
+  .site-header { border-block-end: 1px solid var(--color-line); background: var(--color-surface); }
+  .site-header .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4); padding-block: var(--space-3); }
+  .brand { font-family: var(--font-display); font-weight: 600; font-size: var(--text-2); color: var(--color-ink); text-decoration: none; }
+  .nav { display: flex; gap: var(--space-5); align-items: center; font-size: var(--text-1); }
+  .nav a { color: var(--color-ink); text-decoration: none; }
+  .nav a[aria-current="page"] { color: var(--color-lapis); font-weight: 500; }
+  .nav .switch { border: 1px solid var(--color-line); border-radius: var(--radius-chip); padding-block: var(--space-1); padding-inline: var(--space-3); }
+
+  /* Hero */
+  .hero { padding-block: var(--space-8) var(--space-6); }
+  .hero h1 {
+    font-family: var(--font-display); font-weight: 700; font-size: var(--text-6);
+    line-height: var(--leading-tight); margin: 0; max-inline-size: 12ch; letter-spacing: -0.01em;
+  }
+  html[lang="en"] .hero h1 { max-inline-size: 14ch; }
+  /* Reem Kufi's Latin word space is narrow; open it up in English display text. */
+  html[lang="en"] :is(h1, h2, .brand) { word-spacing: 0.14em; }
+  .status { margin-block-start: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); align-items: baseline; }
+  .status-chip {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-chip);
+    padding-block: var(--space-1); padding-inline: var(--space-3) var(--space-4); font-weight: 500;
+  }
+  .status-chip::before { content: ""; inline-size: 0.6rem; block-size: 0.6rem; border-radius: 50%; background: var(--color-open); }
+  .status-chip.is-closed::before { background: var(--color-closed); }
+  .today { color: var(--color-ink-muted); }
+
+  /* Section headings */
+  section { padding-block: var(--space-6); }
+  h2 { font-family: var(--font-display); font-weight: 600; font-size: var(--text-4); line-height: var(--leading-tight); margin: 0 0 var(--space-5); }
+
+  /* Timetable — the signature element */
+  .timetable { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-stamp); padding: var(--space-5); }
+  .axis, .row { display: grid; grid-template-columns: 7rem 1fr; align-items: center; column-gap: var(--space-4); }
+  .axis { margin-block-end: var(--space-2); }
+  .ticks { position: relative; block-size: 1.25rem; font-size: var(--text-1); color: var(--color-ink-muted); }
+  .ticks span { position: absolute; transform: translateX(50%); font-variant-numeric: tabular-nums; }
+  html[dir="ltr"] .ticks span { transform: translateX(-50%); }
+  .row { padding-block: var(--space-2); border-radius: var(--radius-stamp); }
+  .row + .row { border-block-start: 1px dashed var(--color-line); }
+  .row.is-today { background: var(--color-lapis-wash); border-color: transparent; padding-inline: var(--space-2); margin-inline: calc(var(--space-2) * -1); }
+  .row.is-today + .row { border-color: transparent; }
+  .day { font-weight: 500; }
+  .row.is-today .day { color: var(--color-lapis); font-weight: 600; }
+  .day small { display: block; font-size: var(--text-1); color: var(--color-ink-muted); font-weight: 400; line-height: 1.3; }
+  .track {
+    position: relative; block-size: var(--bar-height); border-radius: var(--radius-bar);
+    background-image: repeating-linear-gradient(to left, var(--color-line) 0 1px, transparent 1px calc(100% / 7));
+  }
+  html[dir="ltr"] .track { background-image: repeating-linear-gradient(to right, var(--color-line) 0 1px, transparent 1px calc(100% / 7)); }
+  .bar { position: absolute; inset-block: 0; border-radius: var(--radius-bar); background: var(--color-lapis); }
+  .closed-label { font-size: var(--text-1); color: var(--color-closed); }
+  .times { grid-column: 2; font-size: var(--text-1); color: var(--color-ink-muted); font-variant-numeric: tabular-nums; margin-block-start: var(--space-1); }
+
+  /* Notices — dated entries with a library date stamp */
+  .notices { list-style: none; margin: 0; padding: 0; }
+  .notice { display: grid; grid-template-columns: 4.75rem 1fr; gap: var(--space-5); padding-block: var(--space-5); }
+  .notice + .notice { border-block-start: 1px solid var(--color-line); }
+  .stamp {
+    align-self: start; text-align: center; color: var(--color-stamp);
+    border: 2px solid var(--color-stamp); border-radius: var(--radius-stamp);
+    padding-block: var(--space-2); line-height: 1.1;
+  }
+  .stamp b { display: block; font-family: var(--font-display); font-size: var(--text-4); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stamp span { font-size: var(--text-1); }
+  .notice h3 { font-size: var(--text-3); font-weight: 600; line-height: 1.35; margin: 0 0 var(--space-2); }
+  .notice p { margin: 0; color: var(--color-ink-muted); max-inline-size: 60ch; }
+  .all-notices { display: inline-block; margin-block-start: var(--space-3); font-weight: 500; }
+
+  /* Footer */
+  .site-footer { margin-block-start: var(--space-7); border-block-start: 1px solid var(--color-line); background: var(--color-surface); }
+  .site-footer .wrap { padding-block: var(--space-6); display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--space-5); }
+  .site-footer dt { font-size: var(--text-1); color: var(--color-ink-muted); }
+  .site-footer dd { margin: 0; }
+
+  @media (max-width: 40rem) {
+    :root { --text-6: 2.625rem; --text-4: 1.5rem; }
+    .hero { padding-block: var(--space-7) var(--space-5); }
+    .nav { gap: var(--space-3); }
+    .timetable { padding: var(--space-4); }
+    .axis, .row { grid-template-columns: 1fr; row-gap: var(--space-1); }
+    .axis > :first-child { display: none; }
+    .times { grid-column: 1; }
+    .notice { grid-template-columns: 3.75rem 1fr; gap: var(--space-4); }
+    .stamp b { font-size: var(--text-3); }
+  }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#" data-t="name">مكتبة سند المجتمعية</a>
+    <nav class="nav" aria-label="Main">
+      <a href="#" aria-current="page" data-t="home">الرئيسية</a>
+      <a href="#" data-t="noticesNav">الإعلانات</a>
+      <a class="switch" href="#en" data-t="switch" lang="en">English</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <h1 data-t="name">مكتبة سند المجتمعية</h1>
+    <div class="status">
+      <span class="status-chip" data-t="status">مفتوحة الآن حتى <bdi dir="ltr">14:00</bdi></span>
+      <span class="today" data-t="today">اليوم السبت: <bdi dir="ltr">09:00–14:00</bdi> و<bdi dir="ltr">17:00–21:00</bdi></span>
+    </div>
+  </div>
+
+  <section aria-labelledby="hours">
+    <h2 id="hours" data-t="hours">مواعيد العمل</h2>
+    <div class="timetable" id="tt"></div>
+  </section>
+
+  <section aria-labelledby="latest">
+    <h2 id="latest" data-t="latest">أحدث الإعلانات</h2>
+    <ol class="notices" id="nl"></ol>
+    <a class="all-notices" href="#" data-t="all">كل الإعلانات</a>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <dl><dt data-t="addressL">العنوان</dt><dd data-t="address">١٢ شارع المثال، حي التجربة، القاهرة (عنوان تجريبي)</dd></dl>
+    <dl><dt data-t="phoneL">الهاتف</dt><dd><bdi dir="ltr">+20 2 0000 0000</bdi></dd></dl>
+  </div>
+</footer>
+
+<script>
+  // Mockup data only. In the app this comes from content/*.json and the catalogues.
+  const T = {
+    ar: { name: "مكتبة سند المجتمعية", home: "الرئيسية", noticesNav: "الإعلانات", switch: "English", hours: "مواعيد العمل",
+      latest: "أحدث الإعلانات", all: "كل الإعلانات", addressL: "العنوان", phoneL: "الهاتف",
+      address: "١٢ شارع المثال، حي التجربة، القاهرة (عنوان تجريبي)",
+      status: 'مفتوحة الآن حتى <bdi dir="ltr">14:00</bdi>', today: 'اليوم السبت: <bdi dir="ltr">09:00–14:00</bdi> و<bdi dir="ltr">17:00–21:00</bdi>',
+      days: ["السبت","الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة"], closed: "مغلقة", short: "يوم مختصر",
+      months: { "10": "أكتوبر", "09": "سبتمبر" }, and: " و" },
+    en: { name: "Sanad Community Library", home: "Home", noticesNav: "Notices", switch: "العربية", hours: "Opening hours",
+      latest: "Latest notices", all: "All notices", addressL: "Address", phoneL: "Phone",
+      address: "12 Example Street, Pilot District, Cairo (synthetic address)",
+      status: 'Open now, until <bdi dir="ltr">14:00</bdi>', today: 'Today, Saturday: <bdi dir="ltr">09:00–14:00</bdi> and <bdi dir="ltr">17:00–21:00</bdi>',
+      days: ["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"], closed: "Closed", short: "Short day",
+      months: { "10": "Oct", "09": "Sep" }, and: ", " },
+  };
+  const week = [ [["09:00","14:00"],["17:00","21:00"]], [["09:00","21:00"]], [["09:00","21:00"]], [["09:00","21:00"]],
+                 [["09:00","21:00"]], [["09:00","15:00"]], [] ];
+  const notices = [
+    { d: "2026-10-04", ar: ["نادي القراءة يعود في أكتوبر", "يجتمع نادي القراءة كل خميس في الساعة 17:00 في قاعة الطابق الأول."], en: ["The reading club returns in October", "The reading club meets every Thursday at 17:00 in the first-floor hall."] },
+    { d: "2026-10-01", ar: ["إغلاق المكتبة يوم 6 أكتوبر", "تغلق المكتبة أبوابها يوم 6 أكتوبر وتعود للعمل في اليوم التالي."], en: ["Library closed on 6 October", "The library is closed on 6 October and reopens the next day."] },
+    { d: "2026-09-21", ar: ["وصول كتب عربية جديدة", "أضفنا 120 عنوانًا جديدًا إلى قسم الأدب العربي."], en: ["New Arabic titles have arrived", "We added 120 new titles to the Arabic literature section."] },
+  ];
+  const lang = location.hash === "#en" ? "en" : "ar";
+  const t = T[lang];
+  document.documentElement.lang = lang; document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  document.querySelectorAll("[data-t]").forEach((el) => { const k = el.dataset.t; if (k in t) el.innerHTML = t[k]; });
+  document.querySelector(".switch").setAttribute("href", lang === "ar" ? "#en" : "#ar");
+  document.querySelector(".switch").setAttribute("lang", lang === "ar" ? "en" : "ar");
+  const pct = (hm) => { const [h, m] = hm.split(":").map(Number); return ((h + m / 60 - 8) / 14) * 100; };
+  let html = '<div class="axis" aria-hidden="true"><span></span><div class="ticks">' +
+    [8,10,12,14,16,18,20,22].map((h) => `<span style="inset-inline-start:${((h-8)/14)*100}%">${String(h).padStart(2,"0")}</span>`).join("") + "</div></div>";
+  week.forEach((slots, i) => {
+    const note = i === 5 ? `<small>${t.short}</small>` : "";
+    const bars = slots.map(([a, b]) => `<span class="bar" style="inset-inline-start:${pct(a)}%;inline-size:${pct(b)-pct(a)}%"></span>`).join("");
+    const times = slots.length ? slots.map(([a,b]) => `<bdi dir="ltr">${a}–${b}</bdi>`).join(t.and) : `<span class="closed-label">${t.closed}</span>`;
+    html += `<div class="row${i === 0 ? " is-today" : ""}"><div class="day">${t.days[i]}${note}</div>` +
+      `<div class="track" aria-hidden="true">${bars}</div><div class="times">${times}</div></div>`;
+  });
+  document.getElementById("tt").innerHTML = html;
+  document.getElementById("nl").innerHTML = notices.map((n) => {
+    const [, mo, da] = n.d.split("-");
+    return `<li class="notice"><div class="stamp"><b>${Number(da)}</b><span>${t.months[mo]}</span></div>` +
+      `<div><h3>${n[lang][0]}</h3><p>${n[lang][1]}</p></div></li>`;
+  }).join("");
+</script>
+</body>
+</html>

@@ -184,3 +184,55 @@ pilot's `scripts/`, `devos/`, `.github/workflows/` and the handbook copied in, r
 `/devos-new-project <brief>`. It runs the fit research, **checks the Cursor marketplace and the
 model list for that project**, writes the documents and the first fence, and hands you the ODs to
 sign.
+
+---
+
+## 11. Automation v3 (OD-07, OD-08)
+
+### 11.1 Builder effort and Fast mode, chosen per task
+Claude writes the choice into each fence header: `- Builder: grok-4.7 · Effort: high · Fast: no`.
+The runner turns it into a Cursor model id and checks it against `agent models`. To see the ids
+Cursor offers, run `agent models` once and confirm the effort variants look like `grok-4.7-low`,
+`grok-4.7-medium`, `grok-4.7-high`, `grok-4.7-xhigh` (and their Fast variants). If an id is not
+listed, the run falls back to `builder.model` and says so on the PR. To override one run by hand:
+Actions → devos-cycle → Run workflow → **effort** / **fast**.
+
+### 11.2 Vercel
+1. Install the CLI and link the repo once: `npm i -g vercel`, then in the repo `vercel link`
+   (choose or create the project). This writes `.vercel/project.json` — **do not commit it**; copy
+   `orgId` and `projectId` from it.
+2. Create a token at vercel.com → Account Settings → Tokens.
+3. Secrets and the switch:
+   ```powershell
+   gh secret set VERCEL_TOKEN --repo Jovo-Jovi/devos-pilot
+   gh secret set VERCEL_ORG_ID --repo Jovo-Jovi/devos-pilot
+   gh secret set VERCEL_PROJECT_ID --repo Jovo-Jovi/devos-pilot
+   gh variable set DEVOS_VERCEL --body true --repo Jovo-Jovi/devos-pilot
+   ```
+4. If previews ask for a Vercel login (Deployment Protection), create a "Protection Bypass for
+   Automation" secret in the Vercel project settings and store it as `VERCEL_AUTOMATION_BYPASS_SECRET`,
+   so the reviewer and the screenshot step can open previews. You can still open previews yourself
+   after logging in to Vercel on your phone.
+5. Production: run Actions → **devos-deploy** once by hand. After that, every push to `main` that you
+   make (gate merges included) deploys production; the runner's own auto-merges do not.
+
+### 11.3 Change requests and revisions
+- **New work:** GitHub → Issues → New issue → **Dev OS change request**. The reviewer replies on the
+  issue: an intake PR to approve, questions (answer, then comment `/devos intake`), or a refusal with
+  the reason. **Merging the intake PR signs its OD and starts the new tasks.**
+- **Change a task in flight:** on its open PR, comment `/devos revise <what to change>`. Claude
+  rewrites that task's fence and Cursor rebuilds it as the next attempt. Use this at a human gate
+  instead of merging work you don't like.
+
+### 11.4 Usage limits
+When Cursor or Claude hits a limit, the PR gets `devos:quota-wait` and the comment shows the reset
+time. If the reset is within about 5½ hours, the same run waits and resumes the task by itself — no
+schedule involved. Longer waits are picked up by `devos-resume` (every 2 hours, best effort) or by
+running it by hand. Removing the label cancels the wait. The waiting job uses Actions minutes while
+it sleeps (up to ~330 per wait).
+
+### 11.5 The UI redesign
+The approved design is `docs/design/DESIGN_SYSTEM.v2.md` with the mockup `docs/design/mockup.html`
+(open `mockup.html#en` for English). To build it, open a change request issue (text in the chat that
+delivered this patch). The reviewer plans the tasks; each UI task is checked against screenshots at
+desktop and phone widths, and the last one stops at gate `G-Design-v2` for your sign-off.

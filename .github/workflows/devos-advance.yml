@@ -1,4 +1,4 @@
-# Restart the cycle after the HUMAN merges a gated task PR (OD-03 §4).
+# Restart the cycle after the HUMAN merges a gated task PR (OD-03 §4) or an intake PR (OD-08 §3).
 # Runner auto-merges carry the devos:auto-merged label and are skipped here, because the cycle
 # already dispatched the next task itself (this also prevents a double dispatch when DEVOS_PAT is used).
 name: devos-advance
@@ -14,7 +14,7 @@ jobs:
   advance:
     if: >-
       github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'task/') &&
+      (startsWith(github.event.pull_request.head.ref, 'task/') || startsWith(github.event.pull_request.head.ref, 'intake/')) &&
       contains(github.event.pull_request.labels.*.name, 'devos') &&
       !contains(github.event.pull_request.labels.*.name, 'devos:auto-merged') &&
       vars.DEVOS_PAUSED != 'true'

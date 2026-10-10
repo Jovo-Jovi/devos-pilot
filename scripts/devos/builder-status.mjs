@@ -7,8 +7,8 @@
 //   error  → the builder crashed or produced no output: halt without spending a review
 // Usage: node scripts/devos/builder-status.mjs --task T01 --attempt 1 --exit <code> [--review-only true]
 import { writeFileSync, mkdirSync } from "node:fs";
-import { P, emit } from "./lib.mjs";
-import { looksLikeLimit, readText, resumeMarker, parseJsonLoose } from "./limits.mjs";
+import { P, emit, config } from "./lib.mjs";
+import { looksLikeLimit, readText, resumeMarker, parseJsonLoose, notBefore } from "./limits.mjs";
 
 const arg = (n, d = "") => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] ?? d : d; };
 const task = arg("task");
@@ -29,6 +29,7 @@ const failed = exit !== 0 || !out.trim() || json?.is_error === true || json?.sub
 const detail = String(json?.result ?? json?.error ?? "").slice(0, 400) || err.trim().split(/\r?\n/).slice(-5).join(" ").slice(0, 400);
 
 let state = "ok";
+const waitUntil = notBefore(`${out}\n${err}`, config().resume?.default_wait_minutes ?? 60);
 let reason = "builder finished";
 if (failed) {
   state = looksLikeLimit(out, err) ? "quota" : "error";
@@ -40,9 +41,9 @@ if (state !== "ok") {
     ? `### Dev OS ${task} · attempt ${attempt} · **waiting for Cursor usage** → \`quota_wait\``
     : `### Dev OS ${task} · attempt ${attempt} · **builder error** → \`halt\``;
   const body = state === "quota"
-    ? `Cursor stopped on a plan/usage or rate limit. Whatever it finished is committed on this branch. No review was spent and the attempt was not used up. **devos-resume** retries this task every hour; remove the \`devos:quota-wait\` label to stop that.`
+    ? `Cursor stopped on a plan/usage or rate limit. Whatever it finished is committed on this branch. No review was spent and the attempt was not used up. The runner resumes it after **${waitUntil}** (UTC); remove the \`devos:quota-wait\` label to cancel that.`
     : `The Cursor CLI failed before finishing, for a reason that does not look like a usage limit. Whatever it finished is committed on this branch. No review was spent. Fix the cause (key, model id, install), then re-run devos-cycle with task=${task} attempt=${attempt}.`;
   writeFileSync(P(".devos/builder-summary.md"), [head, "", body, "", "```", reason, "```", "",
-    state === "quota" ? resumeMarker(task, attempt, false) : ""].join("\n"));
+    state === "quota" ? resumeMarker(task, attempt, false, waitUntil) : ""].join("\n"));
 }
-emit({ state, reason });
+emit({ state, reason, not_before: state === "quota" ? waitUntil : "" });

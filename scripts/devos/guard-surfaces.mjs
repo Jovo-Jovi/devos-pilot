@@ -8,13 +8,15 @@
 //              rewriting next-env.d.ts while the reviewer re-ran the checks). Those paths are
 //              reverted and listed in .devos/surface-warnings.txt; pass --strict to FAIL instead.
 //
-// Usage: node scripts/devos/guard-surfaces.mjs builder|reviewer [--strict]
+//   intake, revise → like reviewer, with their own allow lists (OD-08 §3).
+//
+// Usage: node scripts/devos/guard-surfaces.mjs builder|reviewer|intake|revise [--strict]
 import { rmSync, mkdirSync, appendFileSync } from "node:fs";
 import { changedPaths, config, matchesAny, fail, git, P } from "./lib.mjs";
 
 const role = process.argv[2];
 const strict = process.argv.includes("--strict");
-if (!["builder", "reviewer"].includes(role)) fail("usage: guard-surfaces.mjs builder|reviewer [--strict]", 2);
+if (!["builder", "reviewer", "intake", "revise"].includes(role)) fail("usage: guard-surfaces.mjs builder|reviewer|intake|revise [--strict]", 2);
 
 const cfg = config();
 const ignore = cfg.surfaces.ignore ?? [];
@@ -22,7 +24,7 @@ const changed = changedPaths().filter((p) => !matchesAny(p, ignore));
 const offenders =
   role === "builder"
     ? changed.filter((p) => matchesAny(p, cfg.surfaces.builder.deny))
-    : changed.filter((p) => !matchesAny(p, cfg.surfaces.reviewer.allow));
+    : changed.filter((p) => !matchesAny(p, cfg.surfaces[role].allow));
 
 console.log(`guard:surfaces(${role}): ${changed.length} changed path(s)`);
 for (const p of changed) console.log(`  ${offenders.includes(p) ? "✗" : "·"} ${p}`);
@@ -43,6 +45,6 @@ for (const p of offenders) {
   try { git(["ls-files", "--error-unmatch", "--", p]); } catch { tracked = false; }
   if (tracked) git(["checkout", "--", p]);
   else rmSync(P(p), { force: true, recursive: true });
-  appendFileSync(P(".devos/surface-warnings.txt"), `reviewer run changed ${p} (reverted)\n`);
+  appendFileSync(P(".devos/surface-warnings.txt"), `${role} run changed ${p} (reverted)\n`);
 }
-console.log(`guard:surfaces(reviewer): PASS after reverting ${offenders.length} byproduct path(s); see .devos/surface-warnings.txt`);
+console.log(`guard:surfaces(${role}): PASS after reverting ${offenders.length} byproduct path(s); see .devos/surface-warnings.txt`);

@@ -1,12 +1,13 @@
-# Resume tasks parked by a usage or rate limit (PR-12). Every hour, if no devos-cycle run is
-# active, it takes the oldest open PR labelled devos:quota-wait, reads the resume marker the runner
-# left in its comments, and re-dispatches that exact task and attempt (review_only when only the
-# reviewer was blocked). If the limit is still in force, the run parks the task again.
+# Backstop for tasks parked by a usage or rate limit (PR-12, OD-08 §4). The cycle's own
+# wait-and-resume job handles waits up to ~5.5 h; this covers longer ones (weekly limits) and any
+# case where that job was cancelled. GitHub runs schedules on a best-effort basis (they can start
+# late or be skipped), so you can always run this by hand. It takes the oldest open PR labelled
+# devos:quota-wait whose not_before time has passed, and re-dispatches that exact task and attempt.
 name: devos-resume
 
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 */2 * * *"
   workflow_dispatch:
 
 permissions:
@@ -35,7 +36,7 @@ jobs:
 
           marker=$(gh pr view "$pr" --repo "$REPO" --json comments \
             --jq '[.comments[].body | select(contains("<!-- devos-resume "))] | last // ""' \
-            | grep -o 'devos-resume task=T[0-9]* attempt=[0-9]* review_only=[a-z]*' | tail -1)
+            | grep -o 'devos-resume task=T[0-9]* attempt=[0-9]* review_only=[a-z]*\( not_before=[0-9TZ:-]*\)\?' | tail -1)
           if [ -z "$marker" ]; then
             echo "::error::PR #$pr is parked but has no resume marker; resume it by hand."
             exit 1
@@ -43,6 +44,11 @@ jobs:
           task=$(echo "$marker" | sed 's/.*task=\(T[0-9]*\).*/\1/')
           attempt=$(echo "$marker" | sed 's/.*attempt=\([0-9]*\).*/\1/')
           review_only=$(echo "$marker" | sed 's/.*review_only=\([a-z]*\).*/\1/')
+          not_before=$(echo "$marker" | sed -n 's/.*not_before=\([0-9TZ:-]*\).*/\1/p')
+          if [ -n "$not_before" ] && [ "$(date -u +%s)" -lt "$(date -u -d "$not_before" +%s)" ]; then
+            echo "PR #$pr ($task) waits until $not_before UTC; not yet."
+            exit 0
+          fi
 
           gh pr edit "$pr" --repo "$REPO" --remove-label "devos:quota-wait"
           gh workflow run devos-cycle.yml --repo "$REPO" --ref main \

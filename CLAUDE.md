@@ -48,6 +48,13 @@ project with this method.
 - **You never state a count you have not computed.** State the command.
 - **You never pass a risk-3 task as a light review.** Risk 3 gets a line-by-line heavyweight review.
 
+## Automation v3 (OD-07, OD-08)
+
+- **Fence header:** every fence you write carries `- Builder: grok-4.7 · Effort: <low|medium|high|xhigh> · Fast: <yes|no>`, chosen for the work (see `devos/prompts/reviewer.md`).
+- **Visual check:** for UI tasks, read the screenshots in `.devos/screens/` and compare them with `docs/DESIGN_SYSTEM.md` and `docs/design/`. A preview URL, when present, can be probed with `node scripts/devos/probe.mjs --base <url> /ar /en`.
+- **Intake and revise runs** (`devos/prompts/intake.md`, `revise.md`) have wider edit surfaces, listed in `devos.config.json` `surfaces.intake` and `surfaces.revise`. Outside those runs, PR-07 holds.
+- `docs/design/` (approved design v2 and mockup) ranks with `docs/DESIGN_SYSTEM.md` at precedence 8.
+
 ## Non-waivable gate — Boundary (Profile A)
 
 Proof that no form, input, cookie, storage, tracker, analytics script, log or route handler accepts

@@ -12,7 +12,8 @@ Next task: {{NEXT_TASK_OR_NONE}} · Human gate after a PASS: {{HUMAN_GATE}}
 - `.devos/logs/*.log`: full check logs.
 - `.devos/runner-evidence.md`: branch, SHA, remote-comparison line, changed files.
 - `docs/reports/{{TASK}}.md`: the builder's report. It is a claim, not evidence.
-{{PREV_REVIEW_LINE}}
+{{PREV_REVIEW_LINE}}{{PREVIEW_LINE}}{{SCREENS_LINE}}- This attempt was built with `{{BUILDER_MODEL}}` (effort {{BUILDER_EFFORT}}, fast {{BUILDER_FAST}}).
+
 ## Tool use
 
 - Read files with the Read tool and search with Grep/Glob, not `cat`, `head` or `grep` in Bash.
@@ -31,11 +32,23 @@ Next task: {{NEXT_TASK_OR_NONE}} · Human gate after a PASS: {{HUMAN_GATE}}
    vocabulary (`GLOSSARY.md` §3), i18n (`I18N_MODEL.md`), design (`DESIGN_SYSTEM.md`), security
    (`SECURITY_MODEL.md`), and that nothing outside the fence's scope was added.
    {{RISK3_LINE}}
+   **Visual check (any task that changes what a page looks like):** open every screenshot in
+   `.devos/screens/` with the Read tool and compare it with `docs/DESIGN_SYSTEM.md` and the approved
+   mockup in `docs/design/` (if present): type faces and scale, colour tokens, spacing rhythm,
+   alignment, the RTL mirror in `ar`, and the phone layout. A visible departure from the approved
+   design is a FAIL (HARD FAILURE), not a carry-forward. Say in the verdict which screenshots you
+   looked at.
 4. Write `docs/reviews/{{TASK}}-a{{ATTEMPT}}.md`. Its **first line is exactly** `VERDICT: PASS` or
    `VERDICT: FAIL`, then the Dev OS verdict format from `CLAUDE.md`. In `Next prompt:` give the path
    of the fence you write in step 5 (or "none"), not its full text. Describe carry-forward rows;
    never number them.
 5. Then exactly one of:
+   - In every fence you write, the header carries the builder choice on its own line:
+     `- Builder: grok-4.7 · Effort: <low|medium|high|xhigh> · Fast: <yes|no>`. Choose it for the
+     work: **low** for copy, docs and one-line fixes; **medium** for small contained code; **high**
+     (default) for features and tests; **xhigh** for risk 3, cross-cutting refactors, and a reissue
+     after an attempt at high already failed. **Fast: yes** only for low/medium mechanical work where
+     turnaround matters (it costs more per token); otherwise no.
    - **PASS and a next task exists** → write `docs/fences/{{NEXT_TASK}}.md`: a complete,
      self-contained fence in the format of `docs/fences/T01.md`, from `docs/PHASES.md` "Phase
      outlines", the documents, and what you just verified (real file names, real script names).

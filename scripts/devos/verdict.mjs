@@ -14,7 +14,7 @@
 //               resume by devos-resume (PR-12)
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { P, config, parsePhases, isHumanGate, taskAfter, updatePhasesRow, changedPaths, emit, fail } from "./lib.mjs";
-import { looksLikeLimit, readText, resumeMarker } from "./limits.mjs";
+import { looksLikeLimit, readText, resumeMarker, notBefore } from "./limits.mjs";
 
 const arg = (n, d = "") => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
 const task = arg("task");
@@ -45,10 +45,10 @@ function finish(verdict, action, extra = {}) {
     "",
     `Review: \`${reviewFile}\` · Fence written: \`${extra.fence ?? "none"}\``,
     extra.human ? `\n**Human attention:** ${extra.human}` : "",
-    action === "quota_wait" ? `\n${resumeMarker(task, attempt, true)}` : "",
+    action === "quota_wait" ? `\n${resumeMarker(task, attempt, true, extra.notBefore)}` : "",
   ].join("\n");
   writeFileSync(P(".devos/verdict-summary.md"), summary);
-  emit({ verdict, action, next_attempt: attempt + 1, summary_file: ".devos/verdict-summary.md" });
+  emit({ verdict, action, next_attempt: attempt + 1, summary_file: ".devos/verdict-summary.md", not_before: extra.notBefore ?? "" });
   process.exit(0);
 }
 
@@ -69,8 +69,10 @@ try {
 if (!structured || !["PASS", "FAIL"].includes(structured.verdict)) {
   if (looksLikeLimit(readText(reviewerJson), readText(".devos/reviewer.err"))) {
     notes.push("the reviewer stopped on a Claude usage or rate limit");
+    const nb = notBefore(`${readText(reviewerJson)}\n${readText(".devos/reviewer.err")}`, config().resume?.default_wait_minutes ?? 60);
     finish("WAIT", "quota_wait", {
-      human: `Claude is out of plan usage. Nothing was recorded and the attempt was not used up. devos-resume re-runs this review (review_only) every hour until it goes through; remove the devos:quota-wait label to stop that.`,
+      notBefore: nb,
+      human: `Claude is out of plan usage. Nothing was recorded and the attempt was not used up. The runner re-runs this review (review_only) after ${nb} (UTC); remove the devos:quota-wait label to cancel that.`,
     });
   }
   notes.push("the reviewer produced no structured verdict; a human must look at the run log");

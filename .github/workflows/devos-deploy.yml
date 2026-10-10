@@ -1,0 +1,65 @@
+# Vercel production deploys (OD-08 §2). Previews are made per task attempt inside devos-cycle.
+# Production deploys run:
+#   - on a push to main that a person makes (your gate merges, your own pushes). The runner's own
+#     auto-merges use the default GITHUB_TOKEN, which GitHub does not let trigger workflows, so
+#     production moves at the gates you sign rather than after every task;
+#   - or by hand: Actions → devos-deploy → Run workflow.
+# Git deploys are off in vercel.json so Vercel never deploys behind the method's back.
+# Needs: repository variable DEVOS_VERCEL=true and secrets VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
+name: devos-deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Where to deploy main"
+        type: choice
+        options: [production, preview]
+        default: production
+
+concurrency:
+  group: devos-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: vars.DEVOS_VERCEL == 'true' && vars.DEVOS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g pnpm@10
+      - name: Gate check — the guards must pass on what ships
+        run: |
+          pnpm install --frozen-lockfile
+          node scripts/guards/run-all.mjs
+      - name: Deploy
+        id: d
+        env:
+          TARGET: ${{ inputs.target || 'production' }}
+        run: |
+          if [ "$TARGET" = "production" ]; then ENV=production; FLAG=--prod; else ENV=preview; FLAG=; fi
+          npx --yes vercel@latest pull --yes --environment="$ENV" --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest build $FLAG --token="$VERCEL_TOKEN"
+          url=$(npx --yes vercel@latest deploy --prebuilt $FLAG --token="$VERCEL_TOKEN" | tail -1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Dev OS::Deployed $(git rev-parse --short HEAD) to $TARGET: $url"
+      - name: Smoke test the deployment
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node scripts/devos/probe.mjs --base "${{ steps.d.outputs.url }}" / /ar /en /fr

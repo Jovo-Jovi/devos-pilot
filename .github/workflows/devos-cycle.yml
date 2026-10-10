@@ -2,6 +2,9 @@
 #   resolve task → Cursor builds on task/Tnn → surface guard → commit/push/PR → checks →
 #   Claude reviews from the branch → surface guard → verdict.mjs decides → merge | human gate | retry | halt
 # Start it from Actions → devos-cycle → Run workflow (inputs blank = next open task).
+# OD-08: the fence chooses Grok effort/fast; Vercel preview per attempt (when DEVOS_VERCEL=true);
+# screenshots for the reviewer's visual check; a usage-limit wait is resumed by the wait-and-resume
+# job below (up to ~5.5 h) and otherwise by devos-resume.
 name: devos-cycle
 run-name: "devos ${{ inputs.task || 'next' }} · attempt ${{ inputs.attempt || '1' }}${{ inputs.review_only && ' · review only' || '' }}"
 
@@ -18,6 +21,21 @@ on:
         default: "1"
       review_only:
         description: "Re-run only the reviewer on the existing task branch (after a reviewer/infra failure)"
+        type: boolean
+        required: false
+        default: false
+      effort:
+        description: "Grok 4.7 effort (fence = use the reviewer's choice in the fence)"
+        type: choice
+        options: [fence, low, medium, high, xhigh]
+        default: fence
+      fast:
+        description: "Cursor Fast mode (fence = use the reviewer's choice in the fence)"
+        type: choice
+        options: [fence, "no", "yes"]
+        default: fence
+      revision:
+        description: "Set by /devos revise: a human revision may go past max_attempts"
         type: boolean
         required: false
         default: false
@@ -54,7 +72,7 @@ jobs:
         with:
           node-version: 22
       - id: t
-        run: node scripts/devos/next-task.mjs --task "${{ inputs.task }}" --attempt "${{ inputs.attempt }}"
+        run: node scripts/devos/next-task.mjs --task "${{ inputs.task }}" --attempt "${{ inputs.attempt }}" --revision "${{ inputs.revision }}"
       - if: steps.t.outputs.done == 'true'
         run: echo "::notice title=Dev OS::Every task in docs/PHASES.md is PASS. Nothing to run."
 
@@ -63,6 +81,12 @@ jobs:
     if: needs.resolve.outputs.done == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 150
+    outputs:
+      park_task: ${{ steps.park.outputs.task }}
+      park_attempt: ${{ steps.park.outputs.attempt }}
+      park_review_only: ${{ steps.park.outputs.review_only }}
+      park_not_before: ${{ steps.park.outputs.not_before }}
+      branch: ${{ needs.resolve.outputs.branch }}
     env:
       DEVOS_AUTOMATED: "1"
       NEXT_TELEMETRY_DISABLED: "1"
@@ -108,8 +132,15 @@ jobs:
           test -f "docs/fences/$TASK.md" || { echo "::error::docs/fences/$TASK.md does not exist: the reviewer has not issued this fence"; exit 1; }
           mkdir -p .devos/logs
           cp devos/ci/mcp.ci.json .cursor/mcp.json
-          node scripts/devos/render-prompt.mjs builder "$TASK" "$ATTEMPT" --out .devos/builder-prompt.md
           if [ -f package.json ]; then pnpm install --frozen-lockfile > .devos/logs/install-before.log 2>&1 || echo "::warning::pnpm install (before build) failed; the builder will see it"; fi
+
+      - name: Resolve the builder model (fence effort/fast, checked against `agent models`)
+        id: bm
+        env:
+          CURSOR_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          if [ -n "$CURSOR_KEY" ]; then CURSOR_API_KEY="$CURSOR_KEY" agent models > .devos/models.txt 2>&1 || true; fi
+          node scripts/devos/builder-model.mjs --task "$TASK" --effort "${{ inputs.effort || 'fence' }}" --fast "${{ inputs.fast || 'fence' }}"
 
       - name: Builder — Cursor CLI
         id: builder
@@ -117,10 +148,15 @@ jobs:
         timeout-minutes: 80
         env:
           CURSOR_KEY: ${{ secrets.CURSOR_API_KEY }}
-          MODEL: ${{ needs.resolve.outputs.builder_model }}
+          MODEL: ${{ steps.bm.outputs.model }}
+          DEVOS_BUILDER_MODEL: ${{ steps.bm.outputs.model }}
+          DEVOS_BUILDER_EFFORT: ${{ steps.bm.outputs.effort }}
+          DEVOS_BUILDER_FAST: ${{ steps.bm.outputs.fast }}
         run: |
           test -n "$CURSOR_KEY" || { echo "::error::secret CURSOR_API_KEY is not set"; exit 1; }
           export CURSOR_API_KEY="$CURSOR_KEY"
+          echo "builder: $MODEL (effort ${DEVOS_BUILDER_EFFORT}, fast ${DEVOS_BUILDER_FAST}, from ${{ steps.bm.outputs.source }}) ${{ steps.bm.outputs.note }}"
+          node scripts/devos/render-prompt.mjs builder "$TASK" "$ATTEMPT" --out .devos/builder-prompt.md
           set +e
           agent -p --force --trust --approve-mcps --model "$MODEL" --output-format json \
             "$(cat .devos/builder-prompt.md)" > .devos/builder.json 2> .devos/builder.err
@@ -141,7 +177,7 @@ jobs:
           REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
           if [ "$REVIEW_ONLY" != "true" ]; then
             git add -A
-            git commit --allow-empty -m "$TASK a$ATTEMPT: builder (${{ needs.resolve.outputs.builder_model }})"
+            git commit --allow-empty -m "$TASK a$ATTEMPT: builder (${{ steps.bm.outputs.model }}, effort ${{ steps.bm.outputs.effort }}, fast ${{ steps.bm.outputs.fast }})"
             git push "$REMOTE" "HEAD:refs/heads/$BR"
           fi
           LOCAL=$(git rev-parse HEAD)
@@ -152,6 +188,7 @@ jobs:
             echo "- Branch: \`$BR\`"
             echo "- HEAD: \`$LOCAL\`"
             echo "- Remote comparison: \`git ls-remote origin refs/heads/$BR\` = \`$REMOTE_SHA\` → $([ "$LOCAL" = "$REMOTE_SHA" ] && echo MATCH || echo MISMATCH)"
+            echo "- Builder: \`${{ steps.bm.outputs.model }}\` (effort ${{ steps.bm.outputs.effort }}, fast ${{ steps.bm.outputs.fast }}, chosen by ${{ steps.bm.outputs.source }}) ${{ steps.bm.outputs.note }}"
             echo "- Builder exit code: ${{ steps.builder.outputs.exit || 'not run (review-only re-run)' }}"
             echo
             echo "## Changed files vs main"
@@ -203,6 +240,41 @@ jobs:
           if [ -f package.json ]; then pnpm install --frozen-lockfile > .devos/logs/install.log 2>&1 || echo "::warning::pnpm install --frozen-lockfile failed"; fi
           node scripts/devos/run-checks.mjs
 
+      - name: Vercel preview of this attempt (OD-08 §2)
+        id: preview
+        if: steps.bs.outputs.state == 'ok' && vars.DEVOS_VERCEL == 'true'
+        continue-on-error: true
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+        run: |
+          npx --yes vercel@latest pull --yes --environment=preview --token="$VERCEL_TOKEN" > .devos/logs/vercel.log 2>&1
+          npx --yes vercel@latest build --token="$VERCEL_TOKEN" >> .devos/logs/vercel.log 2>&1
+          url=$(npx --yes vercel@latest deploy --prebuilt --token="$VERCEL_TOKEN" 2>> .devos/logs/vercel.log | tail -1)
+          rm -rf .vercel
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "preview: $url"
+          gh pr comment "$BR" --repo "$REPO" --body "Preview of $TASK attempt $ATTEMPT: $url"
+
+      - name: Screenshots for the reviewer's visual check (OD-08 §5)
+        if: steps.bs.outputs.state == 'ok'
+        continue-on-error: true
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          if [ -f package.json ] && grep -q '"@playwright/test"' package.json; then
+            pnpm exec playwright install --with-deps chromium > .devos/logs/playwright-install.log 2>&1 || true
+            if [ -n "${{ steps.preview.outputs.url }}" ]; then
+              node scripts/devos/screens.mjs --base "${{ steps.preview.outputs.url }}"
+            else
+              node scripts/devos/screens.mjs
+            fi
+          else
+            echo "No Playwright in the project; no screenshots."
+          fi
+
       - name: Reviewer — Claude Code
         id: reviewer
         if: steps.bs.outputs.state == 'ok'
@@ -212,6 +284,11 @@ jobs:
           APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MODEL: ${{ needs.resolve.outputs.reviewer_model }}
           TURNS: ${{ needs.resolve.outputs.reviewer_max_turns }}
+          DEVOS_PREVIEW_URL: ${{ steps.preview.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          DEVOS_BUILDER_MODEL: ${{ steps.bm.outputs.model }}
+          DEVOS_BUILDER_EFFORT: ${{ steps.bm.outputs.effort }}
+          DEVOS_BUILDER_FAST: ${{ steps.bm.outputs.fast }}
         run: |
           [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
           [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
@@ -281,6 +358,16 @@ jobs:
             *) echo "::error::unknown action '$ACTION'"; exit 1 ;;
           esac
 
+      - name: Parking info for the waiter (usage limits)
+        id: park
+        if: always()
+        run: |
+          if [ "${{ steps.bs.outputs.state }}" = "quota" ]; then
+            { echo "task=$TASK"; echo "attempt=$ATTEMPT"; echo "review_only=false"; echo "not_before=${{ steps.bs.outputs.not_before }}"; } >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.v.outputs.action }}" = "quota_wait" ]; then
+            { echo "task=$TASK"; echo "attempt=$ATTEMPT"; echo "review_only=true"; echo "not_before=${{ steps.v.outputs.not_before }}"; } >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Keep the evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -298,3 +385,53 @@ jobs:
           echo "::error title=Dev OS::The cycle stopped on a runner failure (a guard, a missing secret or fence, or a push). Nothing was merged."
           gh pr edit "$BR" --repo "$REPO" --add-label "devos:halted" 2>/dev/null || true
           gh pr comment "$BR" --repo "$REPO" --body "Dev OS runner stopped on a failure in run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Nothing was merged. Fix the cause, then re-run devos-cycle with task=$TASK attempt=$ATTEMPT." 2>/dev/null || true
+
+  # OD-08 §4: wait out a usage limit inside Actions instead of relying on GitHub's best-effort cron.
+  # Claude's session limits reset within about five hours, so a wait up to resume.inline_wait_max_minutes
+  # (330) is slept through here, then the task is re-dispatched. Longer waits (weekly limits) are
+  # left to devos-resume. Remove the devos:quota-wait label, or cancel this run, to stop the wait.
+  wait-and-resume:
+    needs: cycle
+    if: needs.cycle.outputs.park_task != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    permissions:
+      actions: write
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          sparse-checkout: devos.config.json
+      - name: Sleep until the limit resets, then resume
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TASK: ${{ needs.cycle.outputs.park_task }}
+          ATTEMPT: ${{ needs.cycle.outputs.park_attempt }}
+          REVIEW_ONLY: ${{ needs.cycle.outputs.park_review_only }}
+          NOT_BEFORE: ${{ needs.cycle.outputs.park_not_before }}
+          BR: ${{ needs.cycle.outputs.branch }}
+        run: |
+          max_min=$(node -e 'console.log(require("./devos.config.json").resume?.inline_wait_max_minutes ?? 330)')
+          now=$(date -u +%s)
+          target=$(date -u -d "$NOT_BEFORE" +%s 2>/dev/null || echo $((now + 3600)))
+          wait=$(( target - now ))
+          if [ "$wait" -gt $(( max_min * 60 )) ]; then
+            echo "::notice title=Dev OS::$TASK resets at $NOT_BEFORE, beyond the ${max_min}-minute inline wait; devos-resume will pick it up."
+            exit 0
+          fi
+          if [ "$wait" -gt 0 ]; then
+            echo "Waiting $(( wait / 60 )) minutes, until $NOT_BEFORE (UTC), to resume $TASK attempt $ATTEMPT."
+            sleep "$wait"
+          fi
+          labels=$(gh pr view "$BR" --repo "$REPO" --json labels --jq '[.labels[].name] | join(",")' 2>/dev/null || echo "")
+          case ",$labels," in
+            *",devos:quota-wait,"*) ;;
+            *) echo "The devos:quota-wait label was removed; not resuming."; exit 0 ;;
+          esac
+          gh pr edit "$BR" --repo "$REPO" --remove-label "devos:quota-wait"
+          gh workflow run devos-cycle.yml --repo "$REPO" --ref main \
+            -f task="$TASK" -f attempt="$ATTEMPT" -f review_only="$REVIEW_ONLY"
+          echo "::notice title=Dev OS::Resumed $TASK attempt $ATTEMPT (review_only=$REVIEW_ONLY)."

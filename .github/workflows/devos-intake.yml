@@ -1,0 +1,220 @@
+# Change requests and revisions from GitHub (OD-08 §3).
+#
+#   New work:  open an issue with the "Dev OS change request" form (label devos:request). The
+#              reviewer reads it with the repository and either opens an intake PR (draft OD, scope
+#              amendment, new task rows, first fence), asks up to three questions, or explains why it
+#              cannot be done. Comment "/devos intake" on the issue to run it again after answering.
+#              Merging the intake PR signs the OD, and devos-advance starts the new tasks.
+#
+#   Revision:  comment "/devos revise <what to change>" on an open task PR (task/Tnn). The reviewer
+#              reissues that task's fence with your change as the next attempt's focus, and the
+#              cycle rebuilds and re-reviews it.
+#
+# Only repository owners, members and collaborators can trigger either.
+name: devos-intake
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+jobs:
+  intake:
+    if: >-
+      vars.DEVOS_PAUSED != 'true' && !github.event.issue.pull_request &&
+      contains(github.event.issue.labels.*.name, 'devos:request') &&
+      (
+        (github.event_name == 'issues' && github.event.label.name == 'devos:request') ||
+        (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/devos intake') &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: devos-intake-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    env:
+      ISSUE: ${{ github.event.issue.number }}
+      REPO: ${{ github.repository }}
+      BR: intake/issue-${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: Acknowledge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "$ISSUE" --repo "$REPO" --body "Dev OS: the reviewer is reading this request. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      - name: Prepare the request and the branch
+        env:
+          TITLE: ${{ github.event.issue.title }}
+          BODY: ${{ github.event.issue.body }}
+        run: |
+          git config user.name "devos-runner"
+          git config user.email "devos-runner@users.noreply.github.com"
+          git checkout -B "$BR" origin/main
+          mkdir -p .devos
+          printf '# %s\n\n%s\n' "$TITLE" "$BODY" > .devos/request.md
+      - name: Reviewer — plan the request
+        env:
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEVOS_ISSUE: ${{ github.event.issue.number }}
+        run: |
+          [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
+          [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
+          MODEL=$(node -e 'console.log(require("./devos.config.json").reviewer.gate_model)')
+          node scripts/devos/render-prompt.mjs intake - - --out .devos/intake-prompt.md
+          set +e
+          claude -p "$(cat .devos/intake-prompt.md)" --model "$MODEL" --output-format json \
+            --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 80 \
+            --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
+            --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
+            > .devos/intake.json 2> .devos/intake.err
+          echo "reviewer exit code: $?"
+      - name: Guards — intake surface and ledger structure
+        run: |
+          node scripts/devos/guard-surfaces.mjs intake
+          node scripts/guards/run-all.mjs --only phases,secrets
+      - name: Act on the decision
+        env:
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+          TITLE: ${{ github.event.issue.title }}
+        run: |
+          node -e '
+            const fs=require("fs"); let r={};
+            try { r=JSON.parse(fs.readFileSync(".devos/intake.json","utf8")); } catch {}
+            const s=r.structured_output||{};
+            const lim=/usage limit|limit reached|hit your|rate.?limit|overloaded/i.test(JSON.stringify(r)+fs.readFileSync(".devos/intake.err","utf8"));
+            const d=s.decision||(lim?"limit":"error");
+            fs.writeFileSync(".devos/decision", d);
+            const q=(s.questions||[]).map((x,i)=>`${i+1}. ${x}`).join("\n");
+            fs.writeFileSync(".devos/intake-comment.md",
+              d==="accept" ? `**Accepted.** ${s.summary}\n\nDraft ${s.od||"OD"} and tasks ${(s.tasks||[]).join(", ")} are in the intake PR. Merging it signs the decision and starts the work.`
+              : d==="needs-info" ? `**Needs your answers before planning.** ${s.summary||""}\n\n${q}\n\nAnswer in a comment, then comment \`/devos intake\` to run it again.`
+              : d==="reject" ? `**Cannot be done as asked.** ${s.summary}`
+              : d==="limit" ? "Claude hit a usage limit while planning this. Comment `/devos intake` after the limit resets."
+              : "The reviewer run failed without a decision. See the run log, then comment `/devos intake` to retry.");'
+          D=$(cat .devos/decision)
+          if [ "$D" = "accept" ]; then
+            git add -A
+            git commit -m "Intake #$ISSUE: plan the request ($TITLE)"
+            git push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$BR"
+            gh label create "devos:intake" --color 1d76db --force --repo "$REPO" >/dev/null
+            gh label create "devos" --color 0e8a16 --force --repo "$REPO" >/dev/null
+            if ! gh pr view "$BR" --repo "$REPO" --json number >/dev/null 2>&1; then
+              gh pr create --repo "$REPO" --base main --head "$BR" --title "Intake #$ISSUE: $TITLE" \
+                --body-file .devos/intake-comment.md --label devos --label "devos:intake"
+            fi
+            echo "" >> .devos/intake-comment.md
+            echo "Intake PR: $(gh pr view "$BR" --repo "$REPO" --json url --jq .url)" >> .devos/intake-comment.md
+          fi
+          gh issue comment "$ISSUE" --repo "$REPO" --body-file .devos/intake-comment.md
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devos-intake-${{ github.event.issue.number }}
+          path: .devos/
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  revise:
+    if: >-
+      vars.DEVOS_PAUSED != 'true' && github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/devos revise') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: devos-cycle
+      cancel-in-progress: false
+    env:
+      PR: ${{ github.event.issue.number }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Find the task branch
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          read -r ref state < <(gh pr view "$PR" --repo "$REPO" --json headRefName,state --jq '"\(.headRefName) \(.state)"')
+          case "$ref" in task/T[0-9][0-9]) ;; *) gh pr comment "$PR" --repo "$REPO" --body "Dev OS: \`/devos revise\` works on task PRs (task/Tnn) only."; exit 1 ;; esac
+          [ "$state" = "OPEN" ] || { gh pr comment "$PR" --repo "$REPO" --body "Dev OS: this PR is $state; file a change request issue instead."; exit 1; }
+          echo "branch=$ref" >> "$GITHUB_OUTPUT"
+          echo "task=${ref#task/}" >> "$GITHUB_OUTPUT"
+          gh pr comment "$PR" --repo "$REPO" --body "Dev OS: revising ${ref#task/} with your note. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.pr.outputs.branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: Work out the next attempt and save the note
+        id: n
+        env:
+          TASK: ${{ steps.pr.outputs.task }}
+          NOTE: ${{ github.event.comment.body }}
+        run: |
+          git config user.name "devos-runner"
+          git config user.email "devos-runner@users.noreply.github.com"
+          last=$( { ls docs/reviews/ 2>/dev/null | sed -n "s/^${TASK}-a\([0-9]*\)\.md$/\1/p"; git log --format=%s | sed -n "s/^${TASK} a\([0-9]*\):.*/\1/p"; echo 0; } | sort -n | tail -1)
+          echo "attempt=$(( last + 1 ))" >> "$GITHUB_OUTPUT"
+          mkdir -p .devos
+          printf '%s\n' "${NOTE#/devos revise}" > .devos/revision.md
+      - name: Reviewer — reissue the fence with the revision
+        env:
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TASK: ${{ steps.pr.outputs.task }}
+          ATTEMPT: ${{ steps.n.outputs.attempt }}
+        run: |
+          [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
+          [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
+          MODEL=$(node -e 'import("./scripts/devos/lib.mjs").then(({parsePhases,reviewerModel})=>{const r=parsePhases().rows.find(x=>x.task===process.env.TASK);console.log(reviewerModel(r))})')
+          node scripts/devos/render-prompt.mjs revise "$TASK" "$ATTEMPT" --out .devos/revise-prompt.md
+          set +e
+          claude -p "$(cat .devos/revise-prompt.md)" --model "$MODEL" --output-format json \
+            --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 60 \
+            --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
+            --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
+            > .devos/revise.json 2> .devos/revise.err
+          echo "reviewer exit code: $?"
+      - name: Guard — revise surface
+        run: node scripts/devos/guard-surfaces.mjs revise
+      - name: Push the reissued fence and rebuild
+        env:
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+          TASK: ${{ steps.pr.outputs.task }}
+          ATTEMPT: ${{ steps.n.outputs.attempt }}
+          BR: ${{ steps.pr.outputs.branch }}
+        run: |
+          D=$(node -e 'try{const r=require("./.devos/revise.json");console.log(r.structured_output?.decision||"error")}catch{console.log("error")}')
+          S=$(node -e 'try{const r=require("./.devos/revise.json");console.log(r.structured_output?.summary||"")}catch{console.log("")}')
+          if [ "$D" != "revised" ] || git diff --quiet -- "docs/fences/$TASK.md"; then
+            gh pr comment "$PR" --repo "$REPO" --body "Dev OS: the fence was not reissued ($D). $S"
+            exit 0
+          fi
+          git add -A
+          git commit -m "$TASK: fence reissued for human revision (attempt $ATTEMPT)"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$BR"
+          gh pr edit "$BR" --repo "$REPO" --remove-label "devos:human-gate" >/dev/null 2>&1 || true
+          gh pr edit "$BR" --repo "$REPO" --remove-label "devos:halted" >/dev/null 2>&1 || true
+          gh workflow run devos-cycle.yml --repo "$REPO" --ref main -f task="$TASK" -f attempt="$ATTEMPT" -f revision=true
+          gh pr comment "$PR" --repo "$REPO" --body "Dev OS: fence reissued for attempt $ATTEMPT and the build is queued. $S"

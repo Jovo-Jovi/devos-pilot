@@ -7,19 +7,37 @@
   "builder": {
     "cli": "agent",
     "model": "grok-4.7-high",
-    "effort": "high",
-    "effort_note": "Grok 4.7's default effort is high; the Cursor CLI has no effort flag. If `agent models` lists an effort-suffixed id (e.g. grok-4.7-high), put that id in `model`.",
-    "timeout_minutes": 75
+    "timeout_minutes": 75,
+    "model_family": "grok-4.7",
+    "default_effort": "high",
+    "effort_by_risk": {
+      "1": "medium",
+      "2": "high",
+      "3": "high"
+    },
+    "effort_note": "The reviewer sets 'Effort: low|medium|high|xhigh' and 'Fast: yes|no' in each fence header; scripts/devos/builder-model.mjs turns that into a Cursor model id (grok-4.7-<effort>[-fast]) and checks it against `agent models`, falling back to `model`."
   },
   "reviewer": {
     "cli": "claude",
-    "model_by_risk": { "1": "claude-sonnet-5-5", "2": "claude-sonnet-5-5", "3": "claude-opus-5-5" },
+    "model_by_risk": {
+      "1": "claude-sonnet-5-5",
+      "2": "claude-sonnet-5-5",
+      "3": "claude-opus-5-5"
+    },
     "gate_model": "claude-opus-5-5",
     "max_turns": 80,
     "timeout_minutes": 40
   },
-  "required_checks": ["guards", "typecheck", "lint", "test", "build"],
-  "optional_checks": ["e2e"],
+  "required_checks": [
+    "guards",
+    "typecheck",
+    "lint",
+    "test",
+    "build"
+  ],
+  "optional_checks": [
+    "e2e"
+  ],
   "surfaces": {
     "builder": {
       "deny": [
@@ -38,12 +56,46 @@
         ".cursor/cli.json",
         ".cursor/hooks.json",
         ".cursor/hooks/**",
-        "content/**"
+        "content/**",
+        "vercel.json",
+        "docs/design/**",
+        "docs/requests/**",
+        ".github/ISSUE_TEMPLATE/**"
       ]
     },
     "reviewer": {
-      "allow": ["docs/reviews/**", "docs/fences/**"]
+      "allow": [
+        "docs/reviews/**",
+        "docs/fences/**"
+      ]
     },
-    "ignore": [".devos/**"]
+    "ignore": [
+      ".devos/**"
+    ],
+    "intake": {
+      "allow": [
+        "docs/DECISIONS.md",
+        "docs/SCOPE.md",
+        "docs/PHASES.md",
+        "docs/fences/**",
+        "docs/requests/**",
+        "docs/DESIGN_SYSTEM.md",
+        "docs/CONTENT_MODEL.md",
+        "docs/I18N_MODEL.md",
+        "docs/SECURITY_MODEL.md",
+        "docs/BOUNDARY_MODEL.md",
+        "docs/adr/**"
+      ]
+    },
+    "revise": {
+      "allow": [
+        "docs/fences/**",
+        "docs/requests/**"
+      ]
+    }
+  },
+  "resume": {
+    "inline_wait_max_minutes": 330,
+    "default_wait_minutes": 60
   }
 }

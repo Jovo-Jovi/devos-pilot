@@ -3,6 +3,8 @@
 // Starts the production server from an existing build, requests each path WITHOUT following
 // redirects, and prints status, location, the <html> tag's lang/dir and the security headers.
 // Usage: node scripts/devos/probe.mjs [--port 3100] [--no-server] /path ...
+//        node scripts/devos/probe.mjs --base https://<preview>.vercel.app /path ...   (a deployment;
+//        sends VERCEL_AUTOMATION_BYPASS_SECRET as x-vercel-protection-bypass when it is set)
 import { spawn } from "node:child_process";
 import http from "node:http";
 import { existsSync } from "node:fs";
@@ -11,14 +13,28 @@ import { P } from "./lib.mjs";
 const argv = process.argv.slice(2);
 const portIdx = argv.indexOf("--port");
 const port = portIdx >= 0 ? Number(argv[portIdx + 1]) : 3100;
-const noServer = argv.includes("--no-server");
-const paths = argv.filter((a, i) => a.startsWith("/") && i !== portIdx + 1);
+const baseIdx = argv.indexOf("--base");
+const base = baseIdx >= 0 ? argv[baseIdx + 1].replace(/\/$/, "") : "";
+const noServer = argv.includes("--no-server") || Boolean(base);
+const paths = argv.filter((a, i) => a.startsWith("/") && i !== portIdx + 1 && i !== baseIdx + 1);
 if (!paths.length) paths.push("/");
 
 const HEADERS = ["location", "strict-transport-security", "x-content-type-options", "referrer-policy",
   "permissions-policy", "x-frame-options", "content-security-policy"];
 
+async function getRemote(path) {
+  const headers = { "accept-language": "en-US" };
+  if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) headers["x-vercel-protection-bypass"] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  try {
+    const r = await fetch(base + path, { redirect: "manual", headers, signal: AbortSignal.timeout(20000) });
+    return { status: r.status, headers: Object.fromEntries(r.headers), body: (await r.text()).slice(0, 200000) };
+  } catch (e) {
+    return { status: 0, headers: {}, body: "", error: e.message };
+  }
+}
+
 function get(path) {
+  if (base) return getRemote(path);
   return new Promise((resolve) => {
     const req = http.get({ host: "127.0.0.1", port, path, headers: { "accept-language": "en-US" } }, (res) => {
       let body = "";
@@ -51,7 +67,7 @@ if (!noServer) {
 
 let exit = 0;
 try {
-  if (!(await waitUp())) { console.error(`probe: server did not answer on port ${port}`); exit = 2; }
+  if (!base && !(await waitUp())) { console.error(`probe: server did not answer on port ${port}`); exit = 2; }
   else {
     for (const path of paths) {
       const r = await get(path);

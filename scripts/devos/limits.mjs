@@ -6,9 +6,9 @@ import { P } from "./lib.mjs";
 
 const LIMIT_RE = new RegExp(
   [
-    "usage limit", "limit reached", "hit your (usage )?limit", "rate[ _-]?limit", "too many requests", "\\b429\\b",
+    "usage limit", "session limit", "weekly limit", "limit reached", "hit your (\\w+ )?limit", "rate[ _-]?limit", "too many requests", "\\b429\\b",
     "quota", "out of (credits|requests|usage)", "insufficient (credits|balance|quota)", "credit balance",
-    "billing", "plan limit", "resets? (at|in)", "try again (later|in)", "overloaded", "\\b529\\b", "capacity",
+    "billing", "plan limit", "resets? (at |in )?\\d", "try again (later|in)", "overloaded", "\\b529\\b", "capacity",
   ].join("|"),
   "i",
 );
@@ -20,12 +20,48 @@ export function looksLikeLimit(...texts) {
 }
 
 /** Marker the devos-resume workflow reads from the PR comments. */
-export function resumeMarker(task, attempt, reviewOnly) {
-  return `<!-- devos-resume task=${task} attempt=${attempt} review_only=${reviewOnly ? "true" : "false"} -->`;
+export function resumeMarker(task, attempt, reviewOnly, notBeforeIso = "") {
+  return `<!-- devos-resume task=${task} attempt=${attempt} review_only=${reviewOnly ? "true" : "false"}${notBeforeIso ? ` not_before=${notBeforeIso}` : ""} -->`;
 }
 
 export function parseJsonLoose(text) {
   try { return JSON.parse(text); } catch { /* fall through */ }
   const last = text.trim().split(/\r?\n/).reverse().find((l) => l.trim().startsWith("{"));
   try { return last ? JSON.parse(last) : null; } catch { return null; }
+}
+
+/**
+ * Work out when a usage limit resets from the agent's own message (OD-08 §4). Understands
+ * "resets 12:30pm (UTC)", "resets 3pm", "resets at 18:00", "resets in 2h 15m", "try again in 45
+ * minutes" and Claude's "…limit reached|1760112000". Times without a zone are read as UTC, the
+ * runner's zone. Returns a Date, or null when nothing parseable is found.
+ */
+export function parseResetTime(text, now = new Date()) {
+  if (!text) return null;
+  const epoch = /\|(\d{10})\b/.exec(text);
+  if (epoch) return new Date(Number(epoch[1]) * 1000);
+
+  const rel = /(?:resets?|try again)\s+in\s+(?:(\d+)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:in(?:utes?)?)?)?/i.exec(text);
+  if (rel && (rel[1] || rel[2])) return new Date(now.getTime() + ((Number(rel[1] || 0) * 60) + Number(rel[2] || 0)) * 60000);
+
+  const abs = /resets?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i.exec(text);
+  if (abs) {
+    let h = Number(abs[1]);
+    const m = Number(abs[2] || 0);
+    const ap = abs[3]?.toLowerCase();
+    if (ap === "pm" && h < 12) h += 12;
+    if (ap === "am" && h === 12) h = 0;
+    if (h > 23 || m > 59) return null;
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), h, m));
+    if (d.getTime() <= now.getTime()) d.setUTCDate(d.getUTCDate() + 1);
+    return d;
+  }
+  return null;
+}
+
+/** ISO time after which a parked task may be resumed: the parsed reset + 3 minutes, or a default wait. */
+export function notBefore(text, defaultMinutes = 60, now = new Date()) {
+  const reset = parseResetTime(text, now);
+  const t = reset ? reset.getTime() + 3 * 60000 : now.getTime() + defaultMinutes * 60000;
+  return new Date(t).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
