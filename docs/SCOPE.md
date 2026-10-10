@@ -21,7 +21,9 @@ domain, a database. Anything else is out of scope until an OD adds it.
 
 ## 3. Amendments
 
-None.
+| # | Amendment | Decision | Tasks |
+|---|---|---|---|
+| A-1 | Build design v2 (OD-07) on the home and notices pages in both locales: v2 tokens and faces, reading-room timetable, open-now status and today line, date-stamped notices. No new content, route or data collection. | OD-09 (DRAFT until the intake PR for issue #7 merges) | T07–T10 |
 
 ## 4. Delivered scope
 
