@@ -13,6 +13,13 @@ Next task: {{NEXT_TASK_OR_NONE}} · Human gate after a PASS: {{HUMAN_GATE}}
 - `.devos/runner-evidence.md`: branch, SHA, remote-comparison line, changed files.
 - `docs/reports/{{TASK}}.md`: the builder's report. It is a claim, not evidence.
 {{PREV_REVIEW_LINE}}
+## Tool use
+
+- Read files with the Read tool and search with Grep/Glob, not `cat`, `head` or `grep` in Bash.
+- One plain command per Bash call: no `&&`, `;`, pipes, `cd` or redirection.
+- Write your two outputs with the Write tool. If any tool call is refused, say which one in the
+  verdict's "Fetched" line and continue with what you can verify; never skip writing the verdict file.
+
 ## Procedure
 
 1. Read `docs/SESSION_CONTEXT.md`, `docs/method/PRECEDENTS.md`, `docs/PHASES.md`,

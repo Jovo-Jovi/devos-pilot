@@ -51,6 +51,8 @@ let structured = null;
 try {
   const raw = JSON.parse(readFileSync(P(reviewerJson), "utf8"));
   if (raw.is_error) notes.push(`reviewer run reported an error: ${String(raw.result ?? "").slice(0, 300)}`);
+  const denials = raw.permission_denials ?? [];
+  if (denials.length) notes.push(`reviewer had ${denials.length} tool call(s) refused by permissions, e.g. ${JSON.stringify(denials[0]).slice(0, 200)}`);
   structured = raw.structured_output ?? null;
   if (!structured && typeof raw.result === "string") {
     try { structured = JSON.parse(raw.result); } catch { /* not JSON */ }
@@ -60,17 +62,21 @@ try {
 }
 if (!structured || !["PASS", "FAIL"].includes(structured.verdict)) {
   notes.push("the reviewer produced no structured verdict; a human must look at the run log");
-  finish("FAIL", "halt", { human: "Reviewer run failed or returned no verdict. Re-run the workflow for this task and attempt once the cause is fixed." });
+  finish("FAIL", "halt", { human: `Reviewer run failed or returned no verdict. Fix the cause, then re-run devos-cycle with task=${task}, attempt=${attempt}, review_only=true (the builder's work is kept).` });
 }
 if (structured.task !== task || structured.attempt !== attempt) {
   notes.push(`structured verdict names ${structured.task} a${structured.attempt}, expected ${task} a${attempt}`);
+}
+
+if (existsSync(P(".devos/surface-warnings.txt"))) {
+  for (const l of readFileSync(P(".devos/surface-warnings.txt"), "utf8").split(/\r?\n/).filter(Boolean)) notes.push(`surface guard: ${l}`);
 }
 
 // 2. The review file must exist and agree with the structured verdict.
 let verdict = structured.verdict;
 if (!existsSync(P(reviewFile))) {
   notes.push(`missing ${reviewFile}`);
-  finish("FAIL", "halt", { summary: structured.summary, human: "The reviewer did not write its verdict file." });
+  finish("FAIL", "halt", { summary: structured.summary, human: `The reviewer did not write its verdict file. Re-run devos-cycle with task=${task}, attempt=${attempt}, review_only=true.` });
 }
 const reviewText = readFileSync(P(reviewFile), "utf8");
 const firstLine = reviewText.split(/\r?\n/).find((l) => l.trim()) ?? "";
