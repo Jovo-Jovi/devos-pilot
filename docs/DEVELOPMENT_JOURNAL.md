@@ -46,3 +46,12 @@ landed from the T02 verdict. `pnpm check` exits 0. Awaiting verdict.
 
 The home page shows the three newest published notices, and `/[locale]/notices` lists every
 published notice, newest first. A draft never renders. `pnpm check` exits 0. Awaiting verdict.
+
+---
+
+## 2026-10-10 — T05 rendered evidence (builder, Grok 4.7)
+
+Playwright runs the production build in both locales and saves four screenshots under
+`.devos/screenshots/`. Pending states are proved by a unit fixture, because the content is bundled
+at build time and a built page cannot be emptied from a browser test. `pnpm check` exits 0.
+Awaiting verdict.
