@@ -1,0 +1,11 @@
+---
+description: Bilingual, RTL and styling rules for application code
+globs: src/**
+alwaysApply: false
+---
+- Language comes from the URL's locale segment only (`ar` default, `en`). Nothing is inferred from headers or stored about the visitor.
+- Logical CSS properties only (`margin-inline-start`, `padding-block`, `inset-inline-end`, `text-align: start`), never `left`/`right`. Colours, spacing, radii and type come from `src/styles/tokens.css`; raw values anywhere else fail `guard:design`.
+- Every user-facing string exists in `src/i18n/messages/ar.json` and `en.json` with identical keys. No hardcoded interface text, no hardcoded `lang`.
+- Latin runs inside Arabic text (phone, times, dates, codes) are wrapped in `<Bidi>` (renders `<bdi>`).
+- Compose the approved design in `docs/DESIGN_SYSTEM.md`; never restyle a shared component inside a feature. A gap is reported in the report, not improvised.
+- No third-party host in source (fonts come from `next/font`, self-hosted at build).

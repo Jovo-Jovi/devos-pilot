@@ -1,0 +1,38 @@
+# Plain CI for pushes and human PRs. The cycle runs the same checks inline, because pushes made
+# with the default GITHUB_TOKEN do not trigger other workflows (set DEVOS_PAT to have this run on
+# runner PRs too).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g pnpm@10
+      - name: Install
+        run: if [ -f package.json ]; then pnpm install --frozen-lockfile; fi
+      - name: Guards, typecheck, lint, test, build (+ e2e when present)
+        run: node scripts/devos/run-checks.mjs --strict
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-evidence
+          path: .devos/
+          include-hidden-files: true
+          if-no-files-found: ignore

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "reading-club-october",
+    "status": "published",
+    "publishedOn": "2026-10-04",
+    "titleAr": "نادي القراءة يعود في أكتوبر",
+    "titleEn": "The reading club returns in October",
+    "bodyAr": "يجتمع نادي القراءة كل خميس في الساعة 17:00 في قاعة الطابق الأول.",
+    "bodyEn": "The reading club meets every Thursday at 17:00 in the first-floor hall."
+  },
+  {
+    "id": "new-arabic-arrivals",
+    "status": "published",
+    "publishedOn": "2026-09-21",
+    "titleAr": "وصول كتب عربية جديدة",
+    "titleEn": "New Arabic titles have arrived",
+    "bodyAr": "أضفنا 120 عنوانًا جديدًا إلى قسم الأدب العربي.",
+    "bodyEn": "We added 120 new titles to the Arabic literature section."
+  },
+  {
+    "id": "national-holiday-closure",
+    "status": "published",
+    "publishedOn": "2026-10-01",
+    "titleAr": "إغلاق المكتبة يوم 6 أكتوبر",
+    "titleEn": "Library closed on 6 October",
+    "bodyAr": "تغلق المكتبة أبوابها يوم 6 أكتوبر وتعود للعمل في اليوم التالي.",
+    "bodyEn": "The library is closed on 6 October and reopens the next day."
+  },
+  {
+    "id": "maker-space-draft",
+    "status": "draft",
+    "publishedOn": "2026-10-20",
+    "titleAr": "مساحة الصناع (مسودة)",
+    "titleEn": "Maker space (draft)",
+    "bodyAr": "مسودة لا تُعرض.",
+    "bodyEn": "A draft that must never render."
+  }
+]

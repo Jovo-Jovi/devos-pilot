@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+// Reachability evidence (Dev OS §7: "a reachability check proves a surface still renders").
+// Starts the production server from an existing build, requests each path WITHOUT following
+// redirects, and prints status, location, the <html> tag's lang/dir and the security headers.
+// Usage: node scripts/devos/probe.mjs [--port 3100] [--no-server] /path ...
+import { spawn } from "node:child_process";
+import http from "node:http";
+import { existsSync } from "node:fs";
+import { P } from "./lib.mjs";
+
+const argv = process.argv.slice(2);
+const portIdx = argv.indexOf("--port");
+const port = portIdx >= 0 ? Number(argv[portIdx + 1]) : 3100;
+const noServer = argv.includes("--no-server");
+const paths = argv.filter((a, i) => a.startsWith("/") && i !== portIdx + 1);
+if (!paths.length) paths.push("/");
+
+const HEADERS = ["location", "strict-transport-security", "x-content-type-options", "referrer-policy",
+  "permissions-policy", "x-frame-options", "content-security-policy"];
+
+function get(path) {
+  return new Promise((resolve) => {
+    const req = http.get({ host: "127.0.0.1", port, path, headers: { "accept-language": "en-US" } }, (res) => {
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (c) => { if (body.length < 200_000) body += c; });
+      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body }));
+    });
+    req.on("error", (e) => resolve({ status: 0, headers: {}, body: "", error: e.message }));
+    req.setTimeout(15000, () => req.destroy(new Error("timeout")));
+  });
+}
+
+async function waitUp(ms = 60000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    const r = await get("/__devos_probe_ready");
+    if (r.status) return true;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
+
+let server;
+if (!noServer) {
+  if (!existsSync(P(".next"))) { console.error("probe: no .next build found — run `pnpm build` first"); process.exit(2); }
+  server = spawn("pnpm", ["exec", "next", "start", "-p", String(port)], {
+    cwd: P(), stdio: "ignore", shell: process.platform === "win32", detached: process.platform !== "win32",
+  });
+}
+
+let exit = 0;
+try {
+  if (!(await waitUp())) { console.error(`probe: server did not answer on port ${port}`); exit = 2; }
+  else {
+    for (const path of paths) {
+      const r = await get(path);
+      const html = /<html\b[^>]*>/i.exec(r.body)?.[0] ?? "";
+      const lang = /\blang="([^"]*)"/.exec(html)?.[1] ?? "";
+      const dir = /\bdir="([^"]*)"/.exec(html)?.[1] ?? "";
+      console.log(`${path} → ${r.status}${r.error ? " (" + r.error + ")" : ""}`);
+      if (html) console.log(`  html lang="${lang}" dir="${dir}"`);
+      for (const h of HEADERS) if (r.headers[h]) console.log(`  ${h}: ${r.headers[h]}`);
+    }
+  }
+} finally {
+  if (server) {
+    try { process.platform === "win32" ? spawn("taskkill", ["/pid", String(server.pid), "/T", "/F"]) : process.kill(-server.pid, "SIGTERM"); } catch { /* already gone */ }
+  }
+}
+process.exit(exit);

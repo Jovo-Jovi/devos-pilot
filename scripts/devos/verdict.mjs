@@ -1,0 +1,115 @@
+#!/usr/bin/env node
+// Validate the reviewer's verdict, apply PR-08, record it in docs/PHASES.md, and decide the
+// runner's next action. Deterministic: the agents never decide whether to merge.
+//
+// Usage: node scripts/devos/verdict.mjs --task T01 --attempt 1 [--reviewer-json .devos/reviewer.json]
+// Emits: verdict, action (merge | human_gate | retry | halt), next_attempt, summary_file
+//
+// Actions:
+//   merge       PASS, checks green, not a human gate, next fence present (OD-03 §3)
+//   human_gate  PASS on a risk-3 task, a gate task, or with no next fence (OD-03 §4)
+//   retry       FAIL and attempt < max_attempts (OD-03 §5)
+//   halt        FAIL at max attempts, or the reviewer produced no usable verdict
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { P, config, parsePhases, isHumanGate, taskAfter, updatePhasesRow, changedPaths, emit, fail } from "./lib.mjs";
+
+const arg = (n, d = "") => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
+const task = arg("task");
+const attempt = Number(arg("attempt", "1"));
+const reviewerJson = arg("reviewer-json", ".devos/reviewer.json");
+if (!/^T\d{2}$/.test(task)) fail("usage: verdict.mjs --task Tnn --attempt N");
+
+const cfg = config();
+const { rows } = parsePhases();
+const row = rows.find((r) => r.task === task);
+if (!row) fail(`${task} not in docs/PHASES.md`);
+const next = taskAfter(rows, task);
+const reviewFile = `docs/reviews/${task}-a${attempt}.md`;
+const notes = [];
+mkdirSync(P(".devos"), { recursive: true });
+
+function finish(verdict, action, extra = {}) {
+  const phasesVerdict = `${verdict} a${attempt} — ${existsSync(P(reviewFile)) ? reviewFile : "no review file"}`;
+  updatePhasesRow(task, { done: verdict === "PASS", verdict: phasesVerdict });
+  const summary = [
+    `### Dev OS ${task} · attempt ${attempt} · **${verdict}** → \`${action}\``,
+    "",
+    extra.summary ? extra.summary : "",
+    "",
+    notes.length ? "**Runner notes**\n" + notes.map((n) => `- ${n}`).join("\n") : "",
+    "",
+    `Review: \`${reviewFile}\` · Fence written: \`${extra.fence ?? "none"}\``,
+    extra.human ? `\n**Human attention:** ${extra.human}` : "",
+  ].join("\n");
+  writeFileSync(P(".devos/verdict-summary.md"), summary);
+  emit({ verdict, action, next_attempt: attempt + 1, summary_file: ".devos/verdict-summary.md" });
+  process.exit(0);
+}
+
+// 1. The reviewer's structured output.
+let structured = null;
+try {
+  const raw = JSON.parse(readFileSync(P(reviewerJson), "utf8"));
+  if (raw.is_error) notes.push(`reviewer run reported an error: ${String(raw.result ?? "").slice(0, 300)}`);
+  structured = raw.structured_output ?? null;
+  if (!structured && typeof raw.result === "string") {
+    try { structured = JSON.parse(raw.result); } catch { /* not JSON */ }
+  }
+} catch (e) {
+  notes.push(`could not read ${reviewerJson}: ${e.message}`);
+}
+if (!structured || !["PASS", "FAIL"].includes(structured.verdict)) {
+  notes.push("the reviewer produced no structured verdict; a human must look at the run log");
+  finish("FAIL", "halt", { human: "Reviewer run failed or returned no verdict. Re-run the workflow for this task and attempt once the cause is fixed." });
+}
+if (structured.task !== task || structured.attempt !== attempt) {
+  notes.push(`structured verdict names ${structured.task} a${structured.attempt}, expected ${task} a${attempt}`);
+}
+
+// 2. The review file must exist and agree with the structured verdict.
+let verdict = structured.verdict;
+if (!existsSync(P(reviewFile))) {
+  notes.push(`missing ${reviewFile}`);
+  finish("FAIL", "halt", { summary: structured.summary, human: "The reviewer did not write its verdict file." });
+}
+const reviewText = readFileSync(P(reviewFile), "utf8");
+const firstLine = reviewText.split(/\r?\n/).find((l) => l.trim()) ?? "";
+if (firstLine.trim() !== `VERDICT: ${verdict}`) {
+  notes.push(`${reviewFile} first line is "${firstLine.trim()}", structured verdict is ${verdict}; treated as FAIL`);
+  verdict = "FAIL";
+}
+
+// 3. PR-08: red required checks override PASS.
+let ci = null;
+try { ci = JSON.parse(readFileSync(P(".devos/ci-results.json"), "utf8")); } catch { notes.push("no .devos/ci-results.json"); }
+const red = !ci ? ["(no check results)"] : !ci.has_package_json ? ["(no package.json)"] : ci.failed_required;
+if (verdict === "PASS" && red.length) {
+  verdict = "FAIL";
+  notes.push(`PR-08: required checks not green (${red.join(", ")}); reviewer's PASS overridden`);
+  writeFileSync(P(reviewFile), reviewText.replace(/^\s*VERDICT: PASS/, "VERDICT: FAIL") +
+    `\n\n---\nRUNNER OVERRIDE (PR-08): the reviewer wrote PASS, but required checks were not green: ${red.join(", ")}. See .devos/ci-results.json in the run.\n`);
+}
+
+// 4. Decide.
+const fenceChanged = changedPaths().filter((p) => p.startsWith("docs/fences/"));
+if (verdict === "PASS") {
+  if (next && !existsSync(P(`docs/fences/${next.task}.md`))) {
+    notes.push(`PASS but docs/fences/${next.task}.md was not written; the cycle cannot continue on its own`);
+    finish("PASS", "human_gate", { summary: structured.summary, fence: null, human: `Write or request the fence for ${next.task}, then re-run the cycle.` });
+  }
+  const gate = isHumanGate(row);
+  finish("PASS", gate ? "human_gate" : "merge", {
+    summary: structured.summary,
+    fence: structured.fence_written,
+    human: gate ? `${row.risk >= 3 ? "Risk-3 task" : `Gate ${row.gate}`}: review the PR and merge it to sign off. Merging restarts the cycle.` : structured.human_attention,
+  });
+}
+
+if (attempt < cfg.max_attempts) {
+  if (!fenceChanged.includes(`docs/fences/${task}.md`)) notes.push(`no reissued fence for ${task}; the builder retries the same fence with the verdict as guidance`);
+  finish("FAIL", "retry", { summary: structured.summary, fence: fenceChanged.join(", ") || null, human: structured.human_attention });
+}
+finish("FAIL", "halt", {
+  summary: structured.summary,
+  human: structured.human_attention ?? `Attempt ${attempt} of ${cfg.max_attempts} failed. Decide: fix the fence or the code by hand, then run the workflow with task=${task} attempt=1 on a fresh branch, or close the PR.`,
+});

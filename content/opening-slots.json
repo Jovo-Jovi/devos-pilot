@@ -1,0 +1,9 @@
+[
+  { "id": "sat-morning", "dayOfWeek": 6, "opensAt": "09:00", "closesAt": "14:00" },
+  { "id": "sat-evening", "dayOfWeek": 6, "opensAt": "17:00", "closesAt": "21:00" },
+  { "id": "sun", "dayOfWeek": 0, "opensAt": "09:00", "closesAt": "21:00" },
+  { "id": "mon", "dayOfWeek": 1, "opensAt": "09:00", "closesAt": "21:00" },
+  { "id": "tue", "dayOfWeek": 2, "opensAt": "09:00", "closesAt": "21:00" },
+  { "id": "wed", "dayOfWeek": 3, "opensAt": "09:00", "closesAt": "21:00" },
+  { "id": "thu", "dayOfWeek": 4, "opensAt": "09:00", "closesAt": "15:00", "noteAr": "يوم مختصر", "noteEn": "Short day" }
+]

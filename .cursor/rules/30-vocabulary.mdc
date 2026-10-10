@@ -1,0 +1,8 @@
+---
+description: Enforced vocabulary for identifiers (from docs/GLOSSARY.md §3)
+alwaysApply: true
+---
+- Forbidden bare nouns in type, interface, class, enum, route-segment and content-field names: `notice notices slot slots item items post posts user users info profile data`.
+- Use the qualified names: notice → `LibraryNotice`; slot → `OpeningSlot`; profile → `LibraryProfile`; user, item, post, info, data → forbidden, name the entity.
+- The one permitted exception is the route segment `notices` (user-facing URL copy).
+- PascalCase entity names are permitted only as the exact entity names. A bare forbidden noun is a defect; `guard:naming` fails the build on it. Local variable names are outside this rule.

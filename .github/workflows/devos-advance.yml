@@ -1,0 +1,28 @@
+# Restart the cycle after the HUMAN merges a gated task PR (OD-03 §4).
+# Runner auto-merges carry the devos:auto-merged label and are skipped here, because the cycle
+# already dispatched the next task itself (this also prevents a double dispatch when DEVOS_PAT is used).
+name: devos-advance
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  actions: write
+
+jobs:
+  advance:
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'task/') &&
+      contains(github.event.pull_request.labels.*.name, 'devos') &&
+      !contains(github.event.pull_request.labels.*.name, 'devos:auto-merged') &&
+      vars.DEVOS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch the next task
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run devos-cycle.yml --repo "$GITHUB_REPOSITORY" --ref main
+          echo "::notice title=Dev OS::Gate signed by merge of #${{ github.event.pull_request.number }}; next task dispatched."

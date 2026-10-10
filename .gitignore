@@ -1,0 +1,25 @@
+# Dev OS runner scratch (logs, prompts, agent output). Never committed.
+.devos/
+
+# Dev OS: the real MCP config is local; commit only .cursor/mcp.example.json
+.cursor/mcp.json
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,251 @@
+# Dev OS automated cycle (OD-03). One run = one task attempt:
+#   resolve task → Cursor builds on task/Tnn → surface guard → commit/push/PR → checks →
+#   Claude reviews from the branch → surface guard → verdict.mjs decides → merge | human gate | retry | halt
+# Start it from Actions → devos-cycle → Run workflow (inputs blank = next open task).
+name: devos-cycle
+run-name: "devos ${{ inputs.task || 'next' }} · attempt ${{ inputs.attempt || '1' }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Task id, e.g. T03 (blank = next open task in docs/PHASES.md)"
+        required: false
+        default: ""
+      attempt:
+        description: "Attempt number (1 for a first run)"
+        required: false
+        default: "1"
+
+concurrency:
+  group: devos-cycle
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+jobs:
+  resolve:
+    if: vars.DEVOS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      done: ${{ steps.t.outputs.done }}
+      task: ${{ steps.t.outputs.task }}
+      name: ${{ steps.t.outputs.name }}
+      risk: ${{ steps.t.outputs.risk }}
+      attempt: ${{ steps.t.outputs.attempt }}
+      branch: ${{ steps.t.outputs.branch }}
+      builder_model: ${{ steps.t.outputs.builder_model }}
+      reviewer_model: ${{ steps.t.outputs.reviewer_model }}
+      reviewer_max_turns: ${{ steps.t.outputs.reviewer_max_turns }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: t
+        run: node scripts/devos/next-task.mjs --task "${{ inputs.task }}" --attempt "${{ inputs.attempt }}"
+      - if: steps.t.outputs.done == 'true'
+        run: echo "::notice title=Dev OS::Every task in docs/PHASES.md is PASS. Nothing to run."
+
+  cycle:
+    needs: resolve
+    if: needs.resolve.outputs.done == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      DEVOS_AUTOMATED: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+      TASK: ${{ needs.resolve.outputs.task }}
+      NAME: ${{ needs.resolve.outputs.name }}
+      RISK: ${{ needs.resolve.outputs.risk }}
+      ATTEMPT: ${{ needs.resolve.outputs.attempt }}
+      BR: ${{ needs.resolve.outputs.branch }}
+      REPO: ${{ github.repository }}
+    steps:
+      # The agents never see a git credential: checkout keeps none, and only the push and gh
+      # steps below receive a token (PR-04).
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm, Claude Code and the Cursor CLI
+        run: |
+          npm install -g pnpm@10 @anthropic-ai/claude-code
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Check out the task branch (a reissue continues the same branch, PR-03)
+        run: |
+          git config user.name "devos-runner"
+          git config user.email "devos-runner@users.noreply.github.com"
+          if git rev-parse --verify --quiet "origin/$BR" >/dev/null; then
+            git checkout -B "$BR" "origin/$BR"
+            git merge-base --is-ancestor origin/main HEAD || git merge --no-edit origin/main
+          else
+            git checkout -b "$BR"
+          fi
+          test -f "docs/fences/$TASK.md" || { echo "::error::docs/fences/$TASK.md does not exist: the reviewer has not issued this fence"; exit 1; }
+          mkdir -p .devos/logs
+          cp devos/ci/mcp.ci.json .cursor/mcp.json
+          node scripts/devos/render-prompt.mjs builder "$TASK" "$ATTEMPT" --out .devos/builder-prompt.md
+          if [ -f package.json ]; then pnpm install --frozen-lockfile > .devos/logs/install-before.log 2>&1 || echo "::warning::pnpm install (before build) failed; the builder will see it"; fi
+
+      - name: Builder — Cursor CLI
+        id: builder
+        timeout-minutes: 80
+        env:
+          CURSOR_KEY: ${{ secrets.CURSOR_API_KEY }}
+          MODEL: ${{ needs.resolve.outputs.builder_model }}
+        run: |
+          test -n "$CURSOR_KEY" || { echo "::error::secret CURSOR_API_KEY is not set"; exit 1; }
+          export CURSOR_API_KEY="$CURSOR_KEY"
+          set +e
+          agent -p --force --trust --approve-mcps --model "$MODEL" --output-format json \
+            "$(cat .devos/builder-prompt.md)" > .devos/builder.json 2> .devos/builder.err
+          code=$?
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+          echo "builder exit code: $code"
+          tail -c 2000 .devos/builder.err || true
+
+      - name: Guard — builder surface
+        run: node scripts/devos/guard-surfaces.mjs builder
+
+      - name: Commit and push the builder's work
+        env:
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+        run: |
+          rm -f .cursor/mcp.json
+          git add -A
+          git commit --allow-empty -m "$TASK a$ATTEMPT: builder (${{ needs.resolve.outputs.builder_model }})"
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+          git push "$REMOTE" "HEAD:refs/heads/$BR"
+          LOCAL=$(git rev-parse HEAD)
+          REMOTE_SHA=$(git ls-remote "$REMOTE" "refs/heads/$BR" | cut -f1)
+          {
+            echo "# Runner evidence — $TASK attempt $ATTEMPT"
+            echo
+            echo "- Branch: \`$BR\`"
+            echo "- HEAD: \`$LOCAL\`"
+            echo "- Remote comparison: \`git ls-remote origin refs/heads/$BR\` = \`$REMOTE_SHA\` → $([ "$LOCAL" = "$REMOTE_SHA" ] && echo MATCH || echo MISMATCH)"
+            echo "- Builder exit code: ${{ steps.builder.outputs.exit }}"
+            echo
+            echo "## Changed files vs main"
+            echo '```'
+            git diff --stat origin/main...HEAD
+            echo '```'
+          } > .devos/runner-evidence.md
+          cat .devos/runner-evidence.md
+
+      - name: Open the pull request (or reuse it)
+        env:
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+        run: |
+          for l in "devos:0e8a16" "risk-1:c5def5" "risk-2:fbca04" "risk-3:d93f0b" "devos:human-gate:5319e7" "devos:halted:b60205" "devos:auto-merged:0e8a16"; do
+            gh label create "${l%:*}" --color "${l##*:}" --force --repo "$REPO" >/dev/null
+          done
+          if ! gh pr view "$BR" --repo "$REPO" --json number >/dev/null 2>&1; then
+            gh pr create --repo "$REPO" --base main --head "$BR" \
+              --title "$TASK — $NAME" \
+              --body "Dev OS task **$TASK** (risk $RISK). Fence: \`docs/fences/$TASK.md\`. Built by Cursor, reviewed by Claude; the verdict is posted below by the runner." \
+              --label devos --label "risk-$RISK"
+          fi
+
+      - name: Checks (evidence for the reviewer)
+        run: |
+          if [ -f package.json ]; then pnpm install --frozen-lockfile > .devos/logs/install.log 2>&1 || echo "::warning::pnpm install --frozen-lockfile failed"; fi
+          node scripts/devos/run-checks.mjs
+
+      - name: Reviewer — Claude Code
+        id: reviewer
+        timeout-minutes: 45
+        env:
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODEL: ${{ needs.resolve.outputs.reviewer_model }}
+          TURNS: ${{ needs.resolve.outputs.reviewer_max_turns }}
+        run: |
+          [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
+          [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
+          [ -n "$OAUTH$APIKEY" ] || { echo "::error::set secret CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY"; exit 1; }
+          node scripts/devos/render-prompt.mjs reviewer "$TASK" "$ATTEMPT" --out .devos/reviewer-prompt.md
+          set +e
+          claude -p "$(cat .devos/reviewer-prompt.md)" \
+            --model "$MODEL" \
+            --output-format json \
+            --json-schema "$(cat devos/schemas/verdict.schema.json)" \
+            --permission-mode dontAsk \
+            --max-turns "$TURNS" > .devos/reviewer.json 2> .devos/reviewer.err
+          echo "reviewer exit code: $?"
+          tail -c 2000 .devos/reviewer.err || true
+
+      - name: Guard — reviewer surface
+        run: node scripts/devos/guard-surfaces.mjs reviewer
+
+      - name: Verdict (PR-08 applied, recorded in docs/PHASES.md)
+        id: v
+        run: node scripts/devos/verdict.mjs --task "$TASK" --attempt "$ATTEMPT"
+
+      - name: Commit and push the review
+        env:
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+        run: |
+          git add -A
+          git commit -m "$TASK a$ATTEMPT: review — ${{ steps.v.outputs.verdict }} (${{ steps.v.outputs.action }})"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$BR"
+          gh pr comment "$BR" --repo "$REPO" --body-file .devos/verdict-summary.md
+          cat .devos/verdict-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Act on the verdict
+        env:
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+          ACTION: ${{ steps.v.outputs.action }}
+          NEXT_ATTEMPT: ${{ steps.v.outputs.next_attempt }}
+        run: |
+          case "$ACTION" in
+            merge)
+              gh pr edit "$BR" --repo "$REPO" --add-label "devos:auto-merged"
+              gh pr merge "$BR" --repo "$REPO" --merge --delete-branch
+              gh workflow run devos-cycle.yml --repo "$REPO" --ref main
+              echo "::notice title=Dev OS::$TASK merged; next task dispatched." ;;
+            human_gate)
+              gh pr edit "$BR" --repo "$REPO" --add-label "devos:human-gate"
+              echo "::notice title=Dev OS::$TASK PASSED and waits at a human gate. Review and merge the PR to continue." ;;
+            retry)
+              gh workflow run devos-cycle.yml --repo "$REPO" --ref main -f task="$TASK" -f attempt="$NEXT_ATTEMPT"
+              echo "::notice title=Dev OS::$TASK failed attempt $ATTEMPT; attempt $NEXT_ATTEMPT dispatched." ;;
+            halt)
+              gh pr edit "$BR" --repo "$REPO" --add-label "devos:halted"
+              echo "::warning title=Dev OS::$TASK halted. A human decision is needed (see the PR comment)." ;;
+            *) echo "::error::unknown action '$ACTION'"; exit 1 ;;
+          esac
+
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devos-${{ needs.resolve.outputs.task }}-a${{ needs.resolve.outputs.attempt }}
+          path: .devos/
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+      - name: Halt on a runner failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+        run: |
+          echo "::error title=Dev OS::The cycle stopped on a runner failure (a guard, a missing secret or fence, or a push). Nothing was merged."
+          gh pr edit "$BR" --repo "$REPO" --add-label "devos:halted" 2>/dev/null || true
+          gh pr comment "$BR" --repo "$REPO" --body "Dev OS runner stopped on a failure in run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Nothing was merged. Fix the cause, then re-run devos-cycle with task=$TASK attempt=$ATTEMPT." 2>/dev/null || true

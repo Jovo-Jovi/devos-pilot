@@ -1,0 +1,17 @@
+# PILOT — Precedents
+
+Binding procedural rulings. A ruling is authority only if it is listed here or quoted in a fence.
+Ids are allocated from the live maximum by the task that lands them. **Live maximum: PR-10.**
+
+| PR | Ruling | Born from |
+|---|---|---|
+| PR-01 | **Environment profile.** Automated runs (builder and reviewer) execute on GitHub Actions `ubuntu-latest`, bash, Node 22, pnpm 10. Manual IDE runs on the human's Windows machine follow the PowerShell profile in `.cursor/rules/40-environment.mdc` (no `&&`, `curl.exe`, LF/CRLF hashing from committed bytes). A fence states which profile its commands assume; the default is the automated profile. | NEL §16.5 |
+| PR-02 | **Fetch, never paste.** The reviewer verifies from the checked-out task branch in the runner: it reads files and runs commands; the builder's report is a claim, never evidence. | Dev OS §6.1 |
+| PR-03 | **One task per branch.** Task branch is `task/Tnn`. A reissue continues on the same branch and verifies the work already in the tree rather than repeating it. | Dev OS §6.5 |
+| PR-04 | **The runner owns git in automated runs.** With `DEVOS_AUTOMATED=1` the builder never runs `git add/commit/push`, `gh`, or opens a PR; the runner does, and supplies the branch, SHA and remote-comparison evidence in `.devos/runner-evidence.md`. In manual IDE runs the builder pushes to the fence's branch with an explicit refspec. | OD-03 |
+| PR-05 | **A connected tool is not permission.** The builder may call Context7 read-only documentation tools in any fence; any other MCP call must be named by the fence. The reviewer calls no MCP tool. | Dev OS §7 |
+| PR-06 | **Counts are computed.** Every count and hash in a report or verdict states the command that produced it. | Dev OS §7 |
+| PR-07 | **Reviewer surface.** The reviewer changes only `docs/reviews/**` and `docs/fences/**`. Everything else is the builder's or the human's. | OD-03 §2 |
+| PR-08 | **Red overrides PASS.** If any check in `devos.config.json` `required_checks` fails in `.devos/ci-results.json`, the runner records FAIL whatever the reviewer wrote. | OD-03 §7 |
+| PR-09 | **Fence defects belong to the reviewer.** A builder HALT on a check the fence's own text cannot pass is a fence defect: the reviewer says so in the verdict and reissues the whole fence with `Fence version` incremented. | Dev OS §6.5 |
+| PR-10 | **Report location and form.** The builder writes `docs/reports/Tnn.md` with one `## Attempt N` section per attempt (newest last), using the `devos-task-report` skill's format. | OD-03 |
