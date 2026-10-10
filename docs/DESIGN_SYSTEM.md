@@ -1,77 +1,144 @@
-# PILOT — Design system
+# PILOT — Design system v2 ("Reading-room timetable")
 
-Precedence 8. **Approved design (G-Design PASS under OD-02 §2).** Build tasks compose this; they
-never restyle it. A gap is reported, not improvised.
+Precedence 8. **Approved design: v2, G-Design PASS under OD-07** (moved here from
+`docs/design/DESIGN_SYSTEM.v2.md` by the intake for issue #7, OD-09). It supersedes the pilot design
+approved under OD-02 §2. Build tasks compose this; they never restyle it. A gap is reported, not
+improvised.
+**Reference rendering:** `docs/design/mockup.html` (Arabic) and `mockup.html#en` (English). Where this
+document and the mockup differ, this document wins; report the difference. §8 records the
+clarifications made at intake; they rank with the rest of this document.
 
-## 1. Tokens (`src/styles/tokens.css`, the only file allowed raw values)
+## 0. Idea
+
+A neighbourhood library in Cairo, read mostly on phones, Arabic first. The page answers two questions:
+*is it open, and when?* and *what's new at the library?* The memorable element is the **week drawn as a
+reading-room timetable**: one bar per opening period on a 08:00–22:00 axis, mirrored right-to-left in
+Arabic, today highlighted. Everything around it stays quiet. Notice dates use the vernacular of a
+library date stamp.
+
+Avoided on purpose: cream paper, near-black, identical shadowed cards, all-caps labels, arrows on links,
+entrance animations.
+
+## 1. Tokens (`src/styles/tokens.css` — the only file with raw values)
 
 ```css
 :root {
-  --color-ink: #1d2433;
-  --color-ink-muted: #5b6475;
-  --color-paper: #fbf8f2;
+  --color-paper: #edf1f3;
   --color-surface: #ffffff;
-  --color-accent: #0f6e5c;
-  --color-accent-ink: #ffffff;
-  --color-line: #e4ddd0;
-  --color-pending: #8a6d1f;
+  --color-ink: #172a3a;
+  --color-ink-muted: #586776;
+  --color-lapis: #2747a8;
+  --color-lapis-wash: #dde5f6;
+  --color-stamp: #b5333f;
+  --color-open: #1f7a52;
+  --color-closed: #8a4b12;
+  --color-line: #d3dce2;
 
-  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
-  --space-5: 24px; --space-6: 32px; --space-7: 48px;
+  --font-display: var(--font-kufi), var(--font-readex), system-ui, sans-serif;
+  --font-text: var(--font-readex), system-ui, sans-serif;
 
-  --radius-1: 6px; --radius-2: 12px;
+  --text-1: 0.875rem;  --text-2: 1.0625rem; --text-3: 1.375rem;
+  --text-4: 1.875rem;  --text-5: 2.75rem;   --text-6: 3.75rem;
+  --leading-text: 1.8; --leading-text-latin: 1.6; --leading-tight: 1.2;
 
-  --font-body: var(--font-sans), system-ui, sans-serif;
-  --text-1: 0.875rem; --text-2: 1rem; --text-3: 1.25rem; --text-4: 1.75rem; --text-5: 2.25rem;
-  --leading: 1.6;
+  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.5rem;  --space-6: 2rem;   --space-7: 3rem;    --space-8: 4.5rem;
 
-  --content-max: 960px;
+  --radius-bar: 999px; --radius-stamp: 0.625rem; --radius-chip: 999px;
+  --content-max: 56rem;
+  --bar-height: 0.875rem;
 }
 ```
 
-`--font-sans` is set by `next/font/google` with **IBM Plex Sans Arabic** (weights 400, 600),
-self-hosted at build. No font is loaded from a third-party host at run time.
+Phone (`max-width: 40rem`): `--text-6: 2.625rem; --text-4: 1.5rem;`.
 
-## 2. Components
+## 2. Type
 
-| Component | File | Notes |
-|---|---|---|
-| `SiteHeader` | `src/components/SiteHeader.tsx` | library name (from `LibraryProfile`), nav (Home, Notices), `LocaleSwitch` at the inline end |
-| `LocaleSwitch` | `src/components/LocaleSwitch.tsx` | link to the same path in the other locale; label from catalogue `nav.switchTo` |
-| `OpeningHours` | `src/components/OpeningHours.tsx` | a `<table>`: day name · opens–closes in `<Bidi>` · note |
-| `NoticeCard` | `src/components/NoticeCard.tsx` | title, date in `<Bidi>`, body; card = surface, line border, `--radius-2` |
-| `PendingState` | `src/components/PendingState.tsx` | icon-free text in `--color-pending`, used when a region's data is absent |
-| `SiteFooter` | `src/components/SiteFooter.tsx` | address, phone in `<Bidi>` |
-| `Bidi` | `src/components/Bidi.tsx` | renders `<bdi>`; the isolation primitive |
+| Role | Face | Weight | Size / leading |
+|---|---|---|---|
+| Hero (library name) | Reem Kufi | 700 | `--text-6` / `--leading-tight`, max 12ch (ar), 14ch (en) |
+| Section heading `h2` | Reem Kufi | 600 | `--text-4` / tight |
+| Brand in header | Reem Kufi | 600 | `--text-2` |
+| Notice title `h3` | Readex Pro | 600 | `--text-3` / 1.35 |
+| Body, notice text | Readex Pro | 400 | `--text-2` / 1.8 (ar), 1.6 (en); max 60ch |
+| Meta (times, ticks, labels) | Readex Pro | 400–500 | `--text-1`, tabular numerals |
 
-## 3. Composition — home (`/[locale]`)
+Both faces load with `next/font/google` (`Reem_Kufi` weights 500/600/700, `Readex_Pro` 400/500/600,
+subsets `arabic` + `latin`), self-hosted at build, exposed as `--font-kufi` and `--font-readex`.
+English display text gets `word-spacing: 0.14em` (Reem Kufi's Latin word space is narrow). No all-caps.
+Sentence case everywhere.
 
-```
-┌ SiteHeader ──────────────────────────────────────────────┐
-│ [library name]                 Home · Notices · [switch] │
-└──────────────────────────────────────────────────────────┘
-  h1  library name            (text-5, ink)
-  p   tagline                 (text-3, ink-muted)
-  h2  opening hours           → OpeningHours | PendingState(state.pendingHours)
-  h2  latest notices          → 3 × NoticeCard | PendingState(state.pendingNotices)
-      link "all notices" → /[locale]/notices
-┌ SiteFooter ──────────────────────────────────────────────┐
-│ address · phone                                          │
-└──────────────────────────────────────────────────────────┘
-```
+## 3. Components
 
-Content column: `max-inline-size: var(--content-max)`, centred with `margin-inline: auto`,
-`padding-inline: var(--space-4)`. Section gap `--space-7`. Mirrors fully in RTL from the same CSS.
+Every component lives in `src/components/<Name>.tsx`.
 
-## 4. Composition — notices (`/[locale]/notices`)
+| Component | Notes |
+|---|---|
+| `SiteHeader` | surface background, bottom hairline. Brand (start) · nav (end): Home, Notices, `LocaleSwitch` as an outlined pill. Wraps on narrow screens; every link stays visible. Current page link in lapis. |
+| `LocaleSwitch` | link to the same path in the other locale; label from `nav.switchTo`; carries `lang` of the target language. |
+| `Hero` | `h1` library name from `LibraryProfile`; under it `StatusChip` and the "today" line. |
+| `StatusChip` | client component. Computes from `OpeningSlot`s in **Africa/Cairo** time: "Open now, until HH:MM" (green dot) or "Closed now. Opens <day> at HH:MM" (amber dot). Renders nothing on the server (no hydration mismatch, no flash of wrong state); never stores or sends anything. |
+| `TodayLine` | today's periods, e.g. "Today, Saturday: 09:00–14:00 and 17:00–21:00"; "Today, Friday: closed". See §8.1: the pages are static, so it is computed on the client in Africa/Cairo, like `StatusChip`. |
+| `Timetable` (replaces `OpeningHours`) | surface panel, `--radius-stamp`, 1px line border. Axis row with ticks 08,10,…,22. One row per day **Saturday → Friday**. Grid: day column 7rem + track; phone: single column (day, track, times). Track: faint hour lines every 2 h. Bars: lapis, fully rounded, `inset-inline-start` and `inline-size` as percentages of 08:00–22:00 — **logical properties only**, so RTL mirrors with no extra code. Times text under the track (muted, `--text-1`). Days with no slot show "Closed" in `--color-closed`. Today's row: lapis wash background, day name in lapis 600. The bars are `aria-hidden`; the times text is the accessible content. |
+| `NoticeEntry` (replaces `NoticeCard`) | list item, not a card: `DateStamp` + title + body. Entries separated by a 1px line. |
+| `DateStamp` | outlined box in `--color-stamp`, 2px, `--radius-stamp`: day number (Reem Kufi 600, `--text-4`; phone `--text-3`) over month name (`--text-1`). |
+| `PendingState` | unchanged role; muted text in the region's place. |
+| `SiteFooter` | surface background, top hairline; definition list: Address, Phone. |
+| `Bidi` | renders `<bdi dir="ltr">` with `white-space: nowrap` for times, dates and phone numbers — a bare `<bdi>` falls back to the paragraph's RTL when the content has no letters, which reverses "+20 2 0000 0000". |
 
-SiteHeader · h1 (`nav.notices`) · every published `NoticeCard` in one column, gap `--space-5` ·
-PendingState when none · SiteFooter.
+## 4. Compositions
 
-## 5. States
+**Home `/[locale]`:** header → hero (name, status chip, today line) → "Opening hours" `Timetable` →
+"Latest notices" (3 newest `NoticeEntry`) + "All notices" link → footer. Single column,
+`max-inline-size: var(--content-max)`, centred, `padding-inline: var(--space-4)`. Hero padding-block
+`--space-8` / `--space-6` (phone `--space-7` / `--space-5`); sections `--space-6`.
+
+**Notices `/[locale]/notices`:** header → `h1` "Notices" (Reem Kufi, `--text-5`) → every published
+`NoticeEntry`, newest first → footer. Pending state when none.
+
+## 5. Catalogue keys added
+
+`state.closed` ("مغلقة" / "Closed"), `status.openUntil` ("مفتوحة الآن حتى {time}" / "Open now, until
+{time}"), `status.closedOpens` ("مغلقة الآن، تفتح {day} الساعة {time}" / "Closed now. Opens {day} at
+{time}"), `today.label` ("اليوم {day}:" / "Today, {day}:"), `today.closed` ("اليوم {day}: مغلقة" /
+"Today, {day}: closed"), `list.and` (" و" / ", "), `timetable.label` ("جدول المواعيد الأسبوعي" /
+"Weekly opening timetable"). Month names come from `Intl.DateTimeFormat(locale, { month: "short" })`
+for `en` and `{ month: "long" }` for `ar`.
+
+## 6. Quality floor
+
+Visible focus ring (2px lapis, offset 3px) on every link; colour contrast AA for all text on paper and
+surface; `prefers-reduced-motion` respected (there is no motion); phone layout at 390px with no
+horizontal scroll; tap targets ≥ 44px in the header.
+
+## 7. How the reviewer checks it
+
+The cycle saves screenshots of `/ar`, `/en`, `/ar/notices`, `/en/notices` at 1280px and 390px in
+`.devos/screens/`. The reviewer compares them with this document and the mockup: faces, scale,
+colours, the timetable (bars at the right times, mirrored in `ar`, today highlighted), the date stamps,
+the phone layout. A visible departure is a FAIL.
+
+## 8. Clarifications at intake (issue #7, OD-09)
+
+1. **Static pages, client clock.** `/[locale]` and `/[locale]/notices` stay statically prerendered
+   (Cache Components, `generateStaticParams`). A "today" computed at build would be stale, so
+   everything that depends on the current time — `StatusChip`, `TodayLine` and the today highlight in
+   `Timetable` — is computed on the client after hydration, in `Africa/Cairo`, from the same
+   `OpeningSlot`s the server rendered. On the server and before hydration they render nothing (no
+   today line, no row highlighted). The client reads only the clock: no storage, no request.
+2. **No tagline.** The hero carries no tagline (the mockup has none). The catalogue key
+   `site.tagline` stays, unused by the pages.
+3. **Pending state colour.** `PendingState` uses `--color-ink-muted` (v2 has no pending colour).
+4. **Phone as stored.** The footer shows `LibraryProfile.phone` exactly as stored (E.164) inside
+   `Bidi`; the mockup's spaced grouping is not a requirement.
+5. **Heading levels.** On the home page notice titles are `h3` under the "Latest notices" `h2`; on
+   the notices page they are `h2` under the page `h1`, styled as §2's notice title.
+6. **Header tap targets.** Header links get `min-block-size: 2.75rem` (44px) and centre their text,
+   which makes the header slightly taller than the mockup; §6 wins.
+7. **States.**
 
 | State | Where | Rendering |
 |---|---|---|
 | Present | all regions | as composed |
-| Pending | hours, notices | `PendingState` with the catalogue string; never "lorem", never "TODO" |
-| Not found | unknown route | Next.js 404 in the URL's locale where one is known |
+| Pending | hours, notices | `PendingState` with `state.pendingHours` / `state.pendingNotices`; never "lorem", never "TODO" |
+| Not found | unknown route | Next.js 404 in the default locale |

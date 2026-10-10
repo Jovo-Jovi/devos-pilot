@@ -103,6 +103,27 @@ manual run. Removing the `devos:quota-wait` label cancels a wait.
 **5. Screenshots.** Each attempt saves screenshots for the reviewer's visual check (OD-07 §3).
 **Does not decide:** custom domains, DNS, or any production data store.
 
+### OD-09 — Build design v2 on the home and notices pages
+**Status:** DRAFT — signed when the human merges the intake PR
+**Amends:** none (executes OD-07 §2)
+**Requested by:** issue #7
+**1.** Design v2 is built on `/[locale]` and `/[locale]/notices` in both locales: the v2 tokens and
+faces (Reem Kufi, Readex Pro, self-hosted by `next/font`), the reading-room `Timetable`, the open-now
+`StatusChip` and `TodayLine`, and date-stamped `NoticeEntry` lists. `docs/design/DESIGN_SYSTEM.v2.md`
+is moved into `docs/DESIGN_SYSTEM.md` with the intake clarifications in its §8.
+**2.** The work is four tasks, T07 to T10 (`docs/PHASES.md`), each leaving the product working. T10
+closes gate `G-Design-v2` (OD-07 §2), signed by the human's merge after the visual check (OD-07 §3).
+**3.** The pages stay statically prerendered. Everything that depends on the current time is computed
+on the client after hydration in the fixed zone `Africa/Cairo`; it reads only the clock and stores or
+sends nothing. The Boundary gate (OD-01 §3) is unchanged and applies to every task.
+**4.** No content, route, header, dependency or data store changes. The only new runtime code paths
+are presentational components and pure time functions with unit tests.
+**5.** "Done" for the request is the issue's own test: the screenshots of `/ar`, `/en`, `/ar/notices`,
+`/en/notices` at 1280px and 390px match the approved design, and every required check passes.
+**Does not decide:** new content or pages; phone-number formatting; removing `site.tagline` from the
+catalogues; CF-005 (it becomes moot when T07 lands the v2 link colour; its closure is recorded by T10);
+any other carry-forward.
+
 ---
 
 ## D-rows

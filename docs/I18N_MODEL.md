@@ -25,8 +25,12 @@ nothing is stored. `/` redirects to `/ar` (D-02). An unknown first segment is a 
 - Logical CSS properties only (`margin-inline-start`, `padding-block`, `inset-inline-end`,
   `text-align: start`). `guard:design` fails on physical ones.
 - Latin runs inside Arabic text (phone numbers, times, codes, emails) are wrapped in the isolation
-  primitive `<Bidi>` (`src/components/Bidi.tsx`, renders `<bdi>`), so they never reorder.
+  primitive `<Bidi>` (`src/components/Bidi.tsx`, renders `<bdi dir="ltr">` with `white-space: nowrap`
+  from design v2, OD-09), so they never reorder.
 - Times render in 24h `HH:MM` inside `<Bidi>` in both locales. Day names come from the catalogues.
+  Month names on the notice date stamp come from `Intl.DateTimeFormat` (`month: "long"` for `ar`,
+  `month: "short"` for `en`), never from a hardcoded list. Time-of-day logic uses the fixed zone
+  `Africa/Cairo`, never the visitor's zone or locale (OD-09).
 
 ## 5. Language switch
 
