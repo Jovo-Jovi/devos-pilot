@@ -25,4 +25,43 @@ None.
 
 ## 4. Delivered scope
 
-Filled at T06 from `scripts/inventory.mjs` output.
+Delivered at T06. Figures from `node scripts/inventory.mjs`.
+
+| # | Deliverable | Delivered | Evidence |
+|---|---|---|---|
+| S-1 | App shell: locales `ar`/`en`, RTL/LTR from the URL, tokens, catalogues, checks | yes | docs/reviews/T01-a1.md |
+| S-2 | Security-header baseline | yes | docs/reviews/T02-a1.md |
+| S-3 | Home page: library name, opening hours, latest notices, footer with contact | yes | docs/reviews/T03-a1.md |
+| S-4 | Notices page: every published `LibraryNotice`, newest first | yes | docs/reviews/T04-a1.md |
+| S-5 | Rendered evidence in both locales (Playwright) | yes | docs/reviews/T05-a1.md |
+| S-6 | Inventory script and documents brought to the delivered state | yes (this task) | docs/reports/T06.md |
+
+```text
+inventory: PILOT
+routes: 2
+  /[locale]
+  /[locale]/notices
+redirects: 1
+  / -> /ar
+components: 7
+  Bidi
+  LocaleSwitch
+  NoticeCard
+  OpeningHours
+  PendingState
+  SiteFooter
+  SiteHeader
+catalogue keys: ar 19, en 19, identical yes
+content: LibraryProfile 1, OpeningSlot 7, LibraryNotice 4 (published 3, draft 1)
+guards: 7
+  secrets
+  phases
+  naming
+  design
+  i18n
+  boundary
+  literals
+tests: unit 32, e2e 7
+```
+
+Withdrawn: none. Excluded: none (§2 unchanged).

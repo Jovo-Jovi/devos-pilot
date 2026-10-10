@@ -31,3 +31,7 @@ nothing is stored. `/` redirects to `/ar` (D-02). An unknown first segment is a 
 ## 5. Language switch
 
 A link to the same path under the other locale. It is a plain link: no state, no storage.
+
+## 6. Evidence
+
+`e2e/locales.spec.ts` (T05) asserts `lang`/`dir` on `/ar`, `/en`, `/ar/notices` and `/en/notices`, a 404 on `/fr` and `/fr/notices`, that the language switch keeps the path, and that the footer phone and every opening-hours time render inside `<bdi>` in both locales.

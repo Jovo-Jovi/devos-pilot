@@ -14,7 +14,7 @@ The runner reads the table below, and `guard:phases` checks it.
 | T03 | P02 | J5 | Home composition: header, opening hours, footer | 2 | — | [x] | PASS a1 — docs/reviews/T03-a1.md |
 | T04 | P02 | J5 | Library notices: home teaser and notices page | 2 | — | [x] | PASS a1 — docs/reviews/T04-a1.md |
 | T05 | P02 | J5 | Rendered evidence in both locales (Playwright) | 2 | G-Public | [x] | PASS a1 — docs/reviews/T05-a1.md |
-| T06 | P03 | J9 | Inventory script and delivered-state documents | 1 | G-Harden | [ ] | — |
+| T06 | P03 | J9 | Inventory script and delivered-state documents | 1 | G-Harden | [x] | PASS a1 — docs/reviews/T06-a1.md |
 
 ## Phase outlines (the reviewer writes each fence from these)
 

@@ -52,3 +52,4 @@ server. Nothing writes them at run time.
 
 Every file is parsed with a schema on load. Invalid content fails the **build**, never the page.
 Counts for evidence: `node -e "console.log(require('./content/library-notices.json').filter(n=>n.status==='published').length)"`.
+`node scripts/inventory.mjs` prints every content count (T06).

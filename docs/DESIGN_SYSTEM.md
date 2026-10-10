@@ -52,8 +52,8 @@ self-hosted at build. No font is loaded from a third-party host at run time.
 └──────────────────────────────────────────────────────────┘
   h1  library name            (text-5, ink)
   p   tagline                 (text-3, ink-muted)
-  h2  opening hours           → OpeningHours | PendingState(state.pending.hours)
-  h2  latest notices          → 3 × NoticeCard | PendingState(state.pending.notices)
+  h2  opening hours           → OpeningHours | PendingState(state.pendingHours)
+  h2  latest notices          → 3 × NoticeCard | PendingState(state.pendingNotices)
       link "all notices" → /[locale]/notices
 ┌ SiteFooter ──────────────────────────────────────────────┐
 │ address · phone                                          │

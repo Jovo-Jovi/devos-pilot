@@ -21,8 +21,7 @@ Set in `next.config.ts` `headers()` for every route (`source: "/:path*"`):
 | `X-Frame-Options` | `DENY` |
 | `Content-Security-Policy` | `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'` |
 
-`'unsafe-inline'` for scripts is accepted for the pilot (Next.js inline bootstrap); removing it with
-nonces is recorded as a carry-forward at T02, not done.
+`'unsafe-inline'` for scripts is accepted for the pilot (Next.js inline bootstrap); removing it with nonces is carry-forward CF-001 (open). Delivered at T02: `securityHeaders` in `next.config.ts`, asserted by `src/security/headers.test.ts`. The `/` → `/ar` redirect response carries none of the six headers; whether §2 covers redirect responses is carry-forward CF-002 (open, the human's decision).
 
 ## 3. Rate limiting, step-up, recovery
 
