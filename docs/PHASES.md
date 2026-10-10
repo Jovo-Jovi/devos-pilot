@@ -16,7 +16,7 @@ The runner reads the table below, and `guard:phases` checks it.
 | T05 | P02 | J5 | Rendered evidence in both locales (Playwright) | 2 | G-Public | [x] | PASS a1 — docs/reviews/T05-a1.md |
 | T06 | P03 | J9 | Inventory script and delivered-state documents | 1 | G-Harden | [x] | PASS a1 — docs/reviews/T06-a1.md |
 | T07 | P04 | J5 | Design v2 shell: tokens, faces, header, footer, page frame | 2 | — | [x] | PASS a1 — docs/reviews/T07-a1.md |
-| T08 | P04 | J5 | Design v2 timetable (replaces OpeningHours) | 2 | — | [ ] | — |
+| T08 | P04 | J5 | Design v2 timetable (replaces OpeningHours) | 2 | — | [x] | PASS a1 — docs/reviews/T08-a1.md |
 | T09 | P04 | J5 | Design v2 hero: open-now status chip, today line, today highlight | 2 | — | [ ] | — |
 | T10 | P04 | J5 | Design v2 date-stamped notices and final visual check | 2 | G-Design-v2 | [ ] | — |
 
