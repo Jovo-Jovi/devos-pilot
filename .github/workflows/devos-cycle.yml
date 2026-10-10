@@ -165,7 +165,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
         run: |
-          for l in "devos:0e8a16" "risk-1:c5def5" "risk-2:fbca04" "risk-3:d93f0b" "devos:human-gate:5319e7" "devos:halted:b60205" "devos:auto-merged:0e8a16"; do
+          for l in "devos:0e8a16" "risk-1:c5def5" "risk-2:fbca04" "risk-3:d93f0b" "devos:human-gate:5319e7" "devos:halted:b60205" "devos:auto-merged:0e8a16" "devos:quota-wait:fbca04"; do
             gh label create "${l%:*}" --color "${l##*:}" --force --repo "$REPO" >/dev/null
           done
           if ! gh pr view "$BR" --repo "$REPO" --json number >/dev/null 2>&1; then
@@ -175,14 +175,37 @@ jobs:
               --label devos --label "risk-$RISK"
           fi
           gh pr edit "$BR" --repo "$REPO" --remove-label "devos:halted" >/dev/null 2>&1 || true
+          gh pr edit "$BR" --repo "$REPO" --remove-label "devos:quota-wait" >/dev/null 2>&1 || true
+
+      - name: Builder outcome (PR-12)
+        id: bs
+        run: node scripts/devos/builder-status.mjs --task "$TASK" --attempt "$ATTEMPT" --exit "${{ steps.builder.outputs.exit }}" --review-only "$REVIEW_ONLY"
+
+      - name: Park (usage limit) or halt (builder error) without spending a review
+        if: steps.bs.outputs.state != 'ok'
+        env:
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+          STATE: ${{ steps.bs.outputs.state }}
+        run: |
+          gh pr comment "$BR" --repo "$REPO" --body-file .devos/builder-summary.md
+          cat .devos/builder-summary.md >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATE" = "quota" ]; then
+            gh pr edit "$BR" --repo "$REPO" --add-label "devos:quota-wait"
+            echo "::warning title=Dev OS::$TASK parked: Cursor usage/rate limit. devos-resume retries hourly."
+          else
+            gh pr edit "$BR" --repo "$REPO" --add-label "devos:halted"
+            echo "::error title=Dev OS::$TASK halted: the builder failed (not a usage limit). See the PR comment."
+          fi
 
       - name: Checks (evidence for the reviewer)
+        if: steps.bs.outputs.state == 'ok'
         run: |
           if [ -f package.json ]; then pnpm install --frozen-lockfile > .devos/logs/install.log 2>&1 || echo "::warning::pnpm install --frozen-lockfile failed"; fi
           node scripts/devos/run-checks.mjs
 
       - name: Reviewer — Claude Code
         id: reviewer
+        if: steps.bs.outputs.state == 'ok'
         timeout-minutes: 45
         env:
           OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -209,23 +232,29 @@ jobs:
           node -e 'try{const r=require("./.devos/reviewer.json");const d=r.permission_denials||[];console.log(`reviewer permission denials: ${d.length}`);for(const x of d.slice(0,20))console.log(" -",JSON.stringify(x).slice(0,300))}catch(e){console.log("reviewer.json unreadable:",e.message)}' 
 
       - name: Guard — reviewer surface
+        if: steps.bs.outputs.state == 'ok'
         run: node scripts/devos/guard-surfaces.mjs reviewer
 
       - name: Verdict (PR-08 applied, recorded in docs/PHASES.md)
         id: v
+        if: steps.bs.outputs.state == 'ok'
         run: node scripts/devos/verdict.mjs --task "$TASK" --attempt "$ATTEMPT"
 
       - name: Commit and push the review
+        if: steps.bs.outputs.state == 'ok'
         env:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
         run: |
           git add -A
-          git commit -m "$TASK a$ATTEMPT: review — ${{ steps.v.outputs.verdict }} (${{ steps.v.outputs.action }})"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$BR"
+          if ! git diff --cached --quiet; then
+            git commit -m "$TASK a$ATTEMPT: review — ${{ steps.v.outputs.verdict }} (${{ steps.v.outputs.action }})"
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$BR"
+          fi
           gh pr comment "$BR" --repo "$REPO" --body-file .devos/verdict-summary.md
           cat .devos/verdict-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Act on the verdict
+        if: steps.bs.outputs.state == 'ok'
         env:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
           ACTION: ${{ steps.v.outputs.action }}
@@ -243,6 +272,9 @@ jobs:
             retry)
               gh workflow run devos-cycle.yml --repo "$REPO" --ref main -f task="$TASK" -f attempt="$NEXT_ATTEMPT"
               echo "::notice title=Dev OS::$TASK failed attempt $ATTEMPT; attempt $NEXT_ATTEMPT dispatched." ;;
+            quota_wait)
+              gh pr edit "$BR" --repo "$REPO" --add-label "devos:quota-wait"
+              echo "::warning title=Dev OS::$TASK parked: Claude usage/rate limit. devos-resume re-runs the review hourly." ;;
             halt)
               gh pr edit "$BR" --repo "$REPO" --add-label "devos:halted"
               echo "::warning title=Dev OS::$TASK halted. A human decision is needed (see the PR comment)." ;;

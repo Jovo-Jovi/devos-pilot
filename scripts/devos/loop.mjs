@@ -51,6 +51,7 @@ function cycleOnce(task, attempt) {
   const b = sh("agent", ["-p", "--force", "--trust", "--model", cfg.builder.model, "--output-format", "json",
     "Follow the instructions in .devos/builder-prompt.md exactly."], { capture: true, allowFail: true, env: { DEVOS_AUTOMATED: "1" } });
   writeFileSync(P(".devos/builder.json"), b.stdout ?? "");
+  writeFileSync(P(".devos/builder.err"), "");
 
   if (node("scripts/devos/guard-surfaces.mjs", "builder").status !== 0) throw new Error("builder surface guard failed: HALT");
   sh("git", ["add", "-A"]);
@@ -58,6 +59,14 @@ function cycleOnce(task, attempt) {
   if (flag("push")) sh("git", ["push", "origin", `HEAD:refs/heads/${br}`]);
   writeFileSync(P(".devos/runner-evidence.md"),
     `# Runner evidence — ${task} attempt ${attempt} (local)\n\n- Branch: \`${br}\`\n- HEAD: \`${git(["rev-parse", "HEAD"])}\`\n- Remote comparison: ${flag("push") ? "pushed" : "local run, not pushed"}\n\n## Changed files vs ${BASE}\n\`\`\`\n${git(["diff", "--stat", `${BASE}...HEAD`])}\n\`\`\`\n`);
+
+  // PR-12: do not spend a review on a builder that hit a usage limit or crashed.
+  const bs = spawnSync(process.execPath, [P("scripts/devos/builder-status.mjs"), "--task", task, "--attempt", String(attempt), "--exit", String(b.status ?? "")], { cwd: P(), encoding: "utf8" });
+  const state = /state=(\w+)/.exec(bs.stdout ?? "")?.[1] ?? "error";
+  if (state !== "ok" && !flag("dry-run")) {
+    console.log("\n" + readFileSync(P(".devos/builder-summary.md"), "utf8"));
+    return { action: state === "quota" ? "quota_wait" : "halt", br, gate: isHumanGate(row) };
+  }
 
   // Checks, then the reviewer.
   if (existsSync(P("package.json"))) sh("pnpm", ["install", "--frozen-lockfile"], { allowFail: true });
@@ -109,6 +118,9 @@ for (let done = 0; done < maxTasks; ) {
     task = ""; done++;
   } else if (action === "retry") {
     attempt++;
+  } else if (action === "quota_wait") {
+    console.log(`\nUSAGE LIMIT on ${task} attempt ${attempt}. Nothing was recorded. When the limit resets, run:\n  node scripts/devos/loop.mjs --task ${task} --attempt ${attempt}`);
+    break;
   } else if (action === "human_gate") {
     console.log(`\nHUMAN GATE: ${task} passed. Review branch ${br}; to sign off, merge it into ${BASE} (git checkout ${BASE} && git merge --no-ff ${br}), then run the loop again.`);
     break;

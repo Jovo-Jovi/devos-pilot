@@ -10,8 +10,11 @@
 //   human_gate  PASS on a risk-3 task, a gate task, or with no next fence (OD-03 §4)
 //   retry       FAIL and attempt < max_attempts (OD-03 §5)
 //   halt        FAIL at max attempts, or the reviewer produced no usable verdict
+//   quota_wait  the reviewer hit a usage/rate limit: nothing recorded, same attempt, review-only
+//               resume by devos-resume (PR-12)
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { P, config, parsePhases, isHumanGate, taskAfter, updatePhasesRow, changedPaths, emit, fail } from "./lib.mjs";
+import { looksLikeLimit, readText, resumeMarker } from "./limits.mjs";
 
 const arg = (n, d = "") => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
 const task = arg("task");
@@ -29,8 +32,10 @@ const notes = [];
 mkdirSync(P(".devos"), { recursive: true });
 
 function finish(verdict, action, extra = {}) {
-  const phasesVerdict = `${verdict} a${attempt} — ${existsSync(P(reviewFile)) ? reviewFile : "no review file"}`;
-  updatePhasesRow(task, { done: verdict === "PASS", verdict: phasesVerdict });
+  if (action !== "quota_wait") {
+    const phasesVerdict = `${verdict} a${attempt} — ${existsSync(P(reviewFile)) ? reviewFile : "no review file"}`;
+    updatePhasesRow(task, { done: verdict === "PASS", verdict: phasesVerdict });
+  }
   const summary = [
     `### Dev OS ${task} · attempt ${attempt} · **${verdict}** → \`${action}\``,
     "",
@@ -40,6 +45,7 @@ function finish(verdict, action, extra = {}) {
     "",
     `Review: \`${reviewFile}\` · Fence written: \`${extra.fence ?? "none"}\``,
     extra.human ? `\n**Human attention:** ${extra.human}` : "",
+    action === "quota_wait" ? `\n${resumeMarker(task, attempt, true)}` : "",
   ].join("\n");
   writeFileSync(P(".devos/verdict-summary.md"), summary);
   emit({ verdict, action, next_attempt: attempt + 1, summary_file: ".devos/verdict-summary.md" });
@@ -61,6 +67,12 @@ try {
   notes.push(`could not read ${reviewerJson}: ${e.message}`);
 }
 if (!structured || !["PASS", "FAIL"].includes(structured.verdict)) {
+  if (looksLikeLimit(readText(reviewerJson), readText(".devos/reviewer.err"))) {
+    notes.push("the reviewer stopped on a Claude usage or rate limit");
+    finish("WAIT", "quota_wait", {
+      human: `Claude is out of plan usage. Nothing was recorded and the attempt was not used up. devos-resume re-runs this review (review_only) every hour until it goes through; remove the devos:quota-wait label to stop that.`,
+    });
+  }
   notes.push("the reviewer produced no structured verdict; a human must look at the run log");
   finish("FAIL", "halt", { human: `Reviewer run failed or returned no verdict. Fix the cause, then re-run devos-cycle with task=${task}, attempt=${attempt}, review_only=true (the builder's work is kept).` });
 }

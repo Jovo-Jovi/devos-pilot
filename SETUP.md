@@ -136,7 +136,8 @@ dispatches the reissued fence (attempt 2, then 3) on the same branch.
 
 ## 7. Watching and stepping in
 
-- **Labels:** `devos:human-gate` (your turn), `devos:halted` (needs a decision), `devos:auto-merged`.
+- **Labels:** `devos:human-gate` (your turn), `devos:halted` (needs a decision), `devos:quota-wait`
+  (parked on a usage limit; resumes by itself), `devos:auto-merged`.
 - **Each PR comment** holds the verdict summary; the full verdict is `docs/reviews/Tnn-aN.md`; the
   run's artifact `devos-Tnn-aN` holds the prompts, agent outputs and check logs.
 - **Pause everything:** `gh variable set DEVOS_PAUSED --body true`. Resume with `false`, then run
@@ -146,6 +147,10 @@ dispatches the reissued fence (attempt 2, then 3) on the same branch.
 - **Reviewer or infrastructure failure** (no verdict file, auth error, refused tool calls): run the
   workflow with `task=Tnn`, the same `attempt`, and **`review_only` ticked**. Only Claude runs again;
   the builder's commit is kept (PR-11).
+- **Plan or rate limits (PR-12):** if Cursor or Claude runs out of usage, the PR gets
+  `devos:quota-wait`, nothing is marked failed, and the hourly **devos-resume** workflow retries
+  the same task and attempt (review-only when only Claude was blocked) until it goes through. To
+  stop the retries, remove the label; to retry immediately, run devos-resume by hand.
 - **"1 workflow awaiting approval" on a runner PR:** that is the plain `ci` workflow. GitHub holds
   runs on PRs opened by the Actions bot until someone approves them. Approving only runs the checks
   again; the cycle already ran them, so you can approve or ignore it.
