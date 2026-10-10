@@ -49,6 +49,7 @@ permissions:
   pull-requests: write
   issues: write
   actions: write
+  statuses: write
 
 jobs:
   resolve:
@@ -86,6 +87,7 @@ jobs:
       park_attempt: ${{ steps.park.outputs.attempt }}
       park_review_only: ${{ steps.park.outputs.review_only }}
       park_not_before: ${{ steps.park.outputs.not_before }}
+      park_pr: ${{ steps.park.outputs.pr }}
       branch: ${{ needs.resolve.outputs.branch }}
     env:
       DEVOS_AUTOMATED: "1"
@@ -205,14 +207,22 @@ jobs:
           for l in "devos:0e8a16" "risk-1:c5def5" "risk-2:fbca04" "risk-3:d93f0b" "devos:human-gate:5319e7" "devos:halted:b60205" "devos:auto-merged:0e8a16" "devos:quota-wait:fbca04"; do
             gh label create "${l%:*}" --color "${l##*:}" --force --repo "$REPO" >/dev/null
           done
-          if ! gh pr view "$BR" --repo "$REPO" --json number >/dev/null 2>&1; then
+          # Use the OPEN PR for this branch only. A PR merged early by hand must not be reused (PR-13).
+          PRN=$(gh pr list --repo "$REPO" --head "$BR" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$PRN" ]; then
             gh pr create --repo "$REPO" --base main --head "$BR" \
               --title "$TASK — $NAME" \
-              --body "Dev OS task **$TASK** (risk $RISK). Fence: \`docs/fences/$TASK.md\`. Built by Cursor, reviewed by Claude; the verdict is posted below by the runner." \
-              --label devos --label "risk-$RISK"
+              --body "Dev OS task **$TASK** (risk $RISK). Fence: \`docs/fences/$TASK.md\`. Built by Cursor, reviewed by Claude; the verdict is posted below by the runner. Do not merge before the verdict: the \`devos/verdict\` status turns green on PASS." \
+              --label devos --label "risk-$RISK" || echo "::notice::No PR yet (nothing differs from main); it is opened after the review commit."
+            PRN=$(gh pr list --repo "$REPO" --head "$BR" --state open --json number --jq '.[0].number // empty')
           fi
-          gh pr edit "$BR" --repo "$REPO" --remove-label "devos:halted" >/dev/null 2>&1 || true
-          gh pr edit "$BR" --repo "$REPO" --remove-label "devos:quota-wait" >/dev/null 2>&1 || true
+          echo "PRN=$PRN" >> "$GITHUB_ENV"
+          if [ -n "$PRN" ]; then
+            gh pr edit "$PRN" --repo "$REPO" --remove-label "devos:halted" >/dev/null 2>&1 || true
+            gh pr edit "$PRN" --repo "$REPO" --remove-label "devos:quota-wait" >/dev/null 2>&1 || true
+          fi
+          gh api "repos/$REPO/statuses/$(git rev-parse HEAD)" -f state=pending -f context=devos/verdict \
+            -f description="Waiting for the Dev OS review of $TASK" >/dev/null || true
 
       - name: Builder outcome (PR-12)
         id: bs
@@ -224,13 +234,13 @@ jobs:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
           STATE: ${{ steps.bs.outputs.state }}
         run: |
-          gh pr comment "$BR" --repo "$REPO" --body-file .devos/builder-summary.md
+          gh pr comment "$PRN" --repo "$REPO" --body-file .devos/builder-summary.md
           cat .devos/builder-summary.md >> "$GITHUB_STEP_SUMMARY"
           if [ "$STATE" = "quota" ]; then
-            gh pr edit "$BR" --repo "$REPO" --add-label "devos:quota-wait"
+            gh pr edit "$PRN" --repo "$REPO" --add-label "devos:quota-wait"
             echo "::warning title=Dev OS::$TASK parked: Cursor usage/rate limit. devos-resume retries hourly."
           else
-            gh pr edit "$BR" --repo "$REPO" --add-label "devos:halted"
+            gh pr edit "$PRN" --repo "$REPO" --add-label "devos:halted"
             echo "::error title=Dev OS::$TASK halted: the builder failed (not a usage limit). See the PR comment."
           fi
 
@@ -244,19 +254,31 @@ jobs:
         id: preview
         if: steps.bs.outputs.state == 'ok' && vars.DEVOS_VERCEL == 'true'
         continue-on-error: true
+        timeout-minutes: 12
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+          CI: "1"
         run: |
-          npx --yes vercel@latest pull --yes --environment=preview --token="$VERCEL_TOKEN" > .devos/logs/vercel.log 2>&1
-          npx --yes vercel@latest build --token="$VERCEL_TOKEN" >> .devos/logs/vercel.log 2>&1
-          url=$(npx --yes vercel@latest deploy --prebuilt --token="$VERCEL_TOKEN" 2>> .devos/logs/vercel.log | tail -1)
+          # Each Vercel command gets 5 minutes; a missing secret or an interactive prompt can no
+          # longer hold the whole cycle. On failure the review simply runs without a preview.
+          for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            [ -n "${!v}" ] || { echo "::warning title=Dev OS::secret $v is not set; skipping the preview"; exit 0; }
+          done
+          set -o pipefail
+          vc() { timeout 300 npx --yes vercel@latest "$@" --token="$VERCEL_TOKEN" < /dev/null; }
+          if ! { vc pull --yes --environment=preview && vc build; } > .devos/logs/vercel.log 2>&1; then
+            echo "::warning title=Dev OS::Vercel pull/build failed or timed out; reviewing without a preview"
+            tail -n 40 .devos/logs/vercel.log; rm -rf .vercel; exit 0
+          fi
+          url=$(vc deploy --prebuilt 2>> .devos/logs/vercel.log | tail -1) || true
           rm -rf .vercel
+          case "$url" in https://*) ;; *) echo "::warning title=Dev OS::Vercel deploy gave no URL"; tail -n 40 .devos/logs/vercel.log; exit 0 ;; esac
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "preview: $url"
-          gh pr comment "$BR" --repo "$REPO" --body "Preview of $TASK attempt $ATTEMPT: $url"
+          if [ -n "$PRN" ]; then gh pr comment "$PRN" --repo "$REPO" --body "Preview of $TASK attempt $ATTEMPT: $url"; fi
 
       - name: Screenshots for the reviewer's visual check (OD-08 §5)
         if: steps.bs.outputs.state == 'ok'
@@ -327,7 +349,19 @@ jobs:
             git commit -m "$TASK a$ATTEMPT: review — ${{ steps.v.outputs.verdict }} (${{ steps.v.outputs.action }})"
             git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$BR"
           fi
-          gh pr comment "$BR" --repo "$REPO" --body-file .devos/verdict-summary.md
+          if [ -z "$PRN" ]; then
+            gh pr create --repo "$REPO" --base main --head "$BR" --title "$TASK — $NAME (review record)" \
+              --body "Dev OS: the review of $TASK, on a branch whose code is already on main." --label devos --label "risk-$RISK"
+            PRN=$(gh pr list --repo "$REPO" --head "$BR" --state open --json number --jq '.[0].number // empty')
+            echo "PRN=$PRN" >> "$GITHUB_ENV"
+          fi
+          case "${{ steps.v.outputs.verdict }}" in
+            PASS) st=success; d="PASS: $TASK attempt $ATTEMPT" ;;
+            WAIT) st=pending; d="Waiting for a usage limit to reset" ;;
+            *)    st=failure; d="FAIL: $TASK attempt $ATTEMPT" ;;
+          esac
+          gh api "repos/$REPO/statuses/$(git rev-parse HEAD)" -f state="$st" -f context=devos/verdict -f description="$d" >/dev/null || true
+          gh pr comment "$PRN" --repo "$REPO" --body-file .devos/verdict-summary.md
           cat .devos/verdict-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Act on the verdict
@@ -339,21 +373,21 @@ jobs:
         run: |
           case "$ACTION" in
             merge)
-              gh pr edit "$BR" --repo "$REPO" --add-label "devos:auto-merged"
-              gh pr merge "$BR" --repo "$REPO" --merge --delete-branch
+              gh pr edit "$PRN" --repo "$REPO" --add-label "devos:auto-merged"
+              gh pr merge "$PRN" --repo "$REPO" --merge --delete-branch
               gh workflow run devos-cycle.yml --repo "$REPO" --ref main
               echo "::notice title=Dev OS::$TASK merged; next task dispatched." ;;
             human_gate)
-              gh pr edit "$BR" --repo "$REPO" --add-label "devos:human-gate"
+              gh pr edit "$PRN" --repo "$REPO" --add-label "devos:human-gate"
               echo "::notice title=Dev OS::$TASK PASSED and waits at a human gate. Review and merge the PR to continue." ;;
             retry)
               gh workflow run devos-cycle.yml --repo "$REPO" --ref main -f task="$TASK" -f attempt="$NEXT_ATTEMPT"
               echo "::notice title=Dev OS::$TASK failed attempt $ATTEMPT; attempt $NEXT_ATTEMPT dispatched." ;;
             quota_wait)
-              gh pr edit "$BR" --repo "$REPO" --add-label "devos:quota-wait"
+              gh pr edit "$PRN" --repo "$REPO" --add-label "devos:quota-wait"
               echo "::warning title=Dev OS::$TASK parked: Claude usage/rate limit. devos-resume re-runs the review hourly." ;;
             halt)
-              gh pr edit "$BR" --repo "$REPO" --add-label "devos:halted"
+              gh pr edit "$PRN" --repo "$REPO" --add-label "devos:halted"
               echo "::warning title=Dev OS::$TASK halted. A human decision is needed (see the PR comment)." ;;
             *) echo "::error::unknown action '$ACTION'"; exit 1 ;;
           esac
@@ -362,6 +396,7 @@ jobs:
         id: park
         if: always()
         run: |
+          echo "pr=$PRN" >> "$GITHUB_OUTPUT"
           if [ "${{ steps.bs.outputs.state }}" = "quota" ]; then
             { echo "task=$TASK"; echo "attempt=$ATTEMPT"; echo "review_only=false"; echo "not_before=${{ steps.bs.outputs.not_before }}"; } >> "$GITHUB_OUTPUT"
           elif [ "${{ steps.v.outputs.action }}" = "quota_wait" ]; then
@@ -383,8 +418,8 @@ jobs:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
         run: |
           echo "::error title=Dev OS::The cycle stopped on a runner failure (a guard, a missing secret or fence, or a push). Nothing was merged."
-          gh pr edit "$BR" --repo "$REPO" --add-label "devos:halted" 2>/dev/null || true
-          gh pr comment "$BR" --repo "$REPO" --body "Dev OS runner stopped on a failure in run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Nothing was merged. Fix the cause, then re-run devos-cycle with task=$TASK attempt=$ATTEMPT." 2>/dev/null || true
+          gh pr edit "${PRN:-$BR}" --repo "$REPO" --add-label "devos:halted" 2>/dev/null || true
+          gh pr comment "${PRN:-$BR}" --repo "$REPO" --body "Dev OS runner stopped on a failure in run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Nothing was merged. Fix the cause, then re-run devos-cycle with task=$TASK attempt=$ATTEMPT." 2>/dev/null || true
 
   # OD-08 §4: wait out a usage limit inside Actions instead of relying on GitHub's best-effort cron.
   # Claude's session limits reset within about five hours, so a wait up to resume.inline_wait_max_minutes
@@ -412,7 +447,7 @@ jobs:
           ATTEMPT: ${{ needs.cycle.outputs.park_attempt }}
           REVIEW_ONLY: ${{ needs.cycle.outputs.park_review_only }}
           NOT_BEFORE: ${{ needs.cycle.outputs.park_not_before }}
-          BR: ${{ needs.cycle.outputs.branch }}
+          PR: ${{ needs.cycle.outputs.park_pr || needs.cycle.outputs.branch }}
         run: |
           max_min=$(node -e 'console.log(require("./devos.config.json").resume?.inline_wait_max_minutes ?? 330)')
           now=$(date -u +%s)
@@ -426,12 +461,12 @@ jobs:
             echo "Waiting $(( wait / 60 )) minutes, until $NOT_BEFORE (UTC), to resume $TASK attempt $ATTEMPT."
             sleep "$wait"
           fi
-          labels=$(gh pr view "$BR" --repo "$REPO" --json labels --jq '[.labels[].name] | join(",")' 2>/dev/null || echo "")
+          labels=$(gh pr view "$PR" --repo "$REPO" --json labels --jq '[.labels[].name] | join(",")' 2>/dev/null || echo "")
           case ",$labels," in
             *",devos:quota-wait,"*) ;;
             *) echo "The devos:quota-wait label was removed; not resuming."; exit 0 ;;
           esac
-          gh pr edit "$BR" --repo "$REPO" --remove-label "devos:quota-wait"
+          gh pr edit "$PR" --repo "$REPO" --remove-label "devos:quota-wait"
           gh workflow run devos-cycle.yml --repo "$REPO" --ref main \
             -f task="$TASK" -f attempt="$ATTEMPT" -f review_only="$REVIEW_ONLY"
           echo "::notice title=Dev OS::Resumed $TASK attempt $ATTEMPT (review_only=$REVIEW_ONLY)."

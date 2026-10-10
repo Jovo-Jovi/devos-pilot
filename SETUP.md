@@ -236,3 +236,10 @@ The approved design is `docs/design/DESIGN_SYSTEM.v2.md` with the mockup `docs/d
 (open `mockup.html#en` for English). To build it, open a change request issue (text in the chat that
 delivered this patch). The reviewer plans the tasks; each UI task is checked against screenshots at
 desktop and phone widths, and the last one stops at gate `G-Design-v2` for your sign-off.
+
+### 11.6 Protect `main` with the verdict (PR-13)
+Settings → Branches → Add branch ruleset (or classic rule) for `main`: **Require status checks to
+pass**, add `devos/verdict` (it appears after the first run that reports it). Leave "Require approvals"
+off, and leave yourself able to bypass so you can still push method patches. After this, GitHub will
+not let a task PR merge until Claude's verdict is PASS. Branch protection is free on public
+repositories; on a private repository it needs GitHub Pro.

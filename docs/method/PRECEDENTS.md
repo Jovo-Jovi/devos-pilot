@@ -1,7 +1,7 @@
 # PILOT — Precedents
 
 Binding procedural rulings. A ruling is authority only if it is listed here or quoted in a fence.
-Ids are allocated from the live maximum by the task that lands them. **Live maximum: PR-12.**
+Ids are allocated from the live maximum by the task that lands them. **Live maximum: PR-13.**
 
 | PR | Ruling | Born from |
 |---|---|---|
@@ -17,3 +17,4 @@ Ids are allocated from the live maximum by the task that lands them. **Live maxi
 | PR-10 | **Report location and form.** The builder writes `docs/reports/Tnn.md` with one `## Attempt N` section per attempt (newest last), using the `devos-task-report` skill's format. | OD-03 |
 | PR-11 | **Reviewer tools are granted on the command line.** The runner passes `--allowedTools "Read,Glob,Grep,Write,Edit,Bash"` with explicit git/gh/curl denies, instead of relying on project settings alone; the reviewer surface guard (PR-07) is the enforcement. A reviewer or infrastructure failure is re-run with `review_only=true`, never by re-running the builder. | T01 a1: reviewer's Write and Bash calls were refused, so no verdict file was written (2026-10-10) |
 | PR-12 | **A usage limit is a wait, not a failure.** If the builder's run fails on a plan/usage or rate limit, its partial work is committed, no review is spent, the attempt is not consumed, and the PR is labelled `devos:quota-wait`; the same applies when the reviewer hits a Claude limit (review-only resume, nothing recorded in `PHASES.md`). `devos-resume` re-dispatches the oldest parked task hourly while no cycle is running. A builder failure that is not a limit halts without spending a review. | Human question on plan limits (2026-10-10) |
+| PR-13 | **No merge before the verdict.** A task PR is merged only after its review: by the runner on PASS, or by the human at a gate. The runner sets the commit status `devos/verdict` (pending → success on PASS, failure on FAIL) and `main` requires it. The runner only ever acts on the branch's **open** PR; if a task's code reached `main` early, the review still runs on the branch and lands as a "review record" PR. Intake runs act only on issues from owners, members and collaborators. | T08: PR #10 merged by hand while the review was pending; Vercel preview step hung with no time limit (2026-10-11) |

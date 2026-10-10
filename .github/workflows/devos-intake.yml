@@ -24,6 +24,7 @@ permissions:
   pull-requests: write
   issues: write
   actions: write
+  statuses: write
 
 jobs:
   intake:
@@ -31,7 +32,8 @@ jobs:
       vars.DEVOS_PAUSED != 'true' && !github.event.issue.pull_request &&
       contains(github.event.issue.labels.*.name, 'devos:request') &&
       (
-        (github.event_name == 'issues' && github.event.label.name == 'devos:request') ||
+        (github.event_name == 'issues' && github.event.label.name == 'devos:request' &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)) ||
         (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/devos intake') &&
           contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
       )
@@ -120,6 +122,8 @@ jobs:
               gh pr create --repo "$REPO" --base main --head "$BR" --title "Intake #$ISSUE: $TITLE" \
                 --body-file .devos/intake-comment.md --label devos --label "devos:intake"
             fi
+            gh api "repos/$REPO/statuses/$(git rev-parse HEAD)" -f state=success -f context=devos/verdict \
+              -f description="Intake plan: merging signs the drafted OD" >/dev/null || true
             echo "" >> .devos/intake-comment.md
             echo "Intake PR: $(gh pr view "$BR" --repo "$REPO" --json url --jq .url)" >> .devos/intake-comment.md
           fi
