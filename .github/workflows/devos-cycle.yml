@@ -167,9 +167,15 @@ jobs:
           echo "builder: $MODEL (effort ${DEVOS_BUILDER_EFFORT}, fast ${DEVOS_BUILDER_FAST}, from ${{ steps.bm.outputs.source }}) ${{ steps.bm.outputs.note }}"
           node scripts/devos/render-prompt.mjs builder "$TASK" "$ATTEMPT" --out .devos/builder-prompt.md
           set +e
+          # Heartbeat: Cursor's output goes to a file, so print progress every minute.
+          ( t0=$(date +%s); while sleep 60; do
+              echo "Cursor is working on $TASK: $(( ($(date +%s) - t0) / 60 )) min, $(git status --porcelain | wc -l) file(s) changed so far"
+            done ) &
+          hb=$!
           agent -p --force --trust --approve-mcps --model "$MODEL" --output-format json \
             "$(cat .devos/builder-prompt.md)" > .devos/builder.json 2> .devos/builder.err
           code=$?
+          kill "$hb" 2>/dev/null
           echo "exit=$code" >> "$GITHUB_OUTPUT"
           echo "builder exit code: $code"
           tail -c 2000 .devos/builder.err || true
@@ -330,6 +336,11 @@ jobs:
           [ -n "$OAUTH$APIKEY" ] || { echo "::error::set secret CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY"; exit 1; }
           node scripts/devos/render-prompt.mjs reviewer "$TASK" "$ATTEMPT" --out .devos/reviewer-prompt.md
           set +e
+          ( t0=$(date +%s); while sleep 60; do
+              f="not yet"; [ -f "docs/reviews/$TASK-a$ATTEMPT.md" ] && f="written"
+              echo "Claude is reviewing $TASK: $(( ($(date +%s) - t0) / 60 )) min, verdict file $f"
+            done ) &
+          hb=$!
           claude -p "$(cat .devos/reviewer-prompt.md)" \
             --model "$MODEL" \
             --effort "${EFFORT:-high}" \
@@ -340,7 +351,9 @@ jobs:
             --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
             --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
             --max-turns "$TURNS" > .devos/reviewer.json 2> .devos/reviewer.err
-          echo "reviewer exit code: $?"
+          rc=$?
+          kill "$hb" 2>/dev/null
+          echo "reviewer exit code: $rc"
           tail -c 2000 .devos/reviewer.err || true
           # Surface any tool calls the permission layer refused, so a denial is never silent.
           node -e 'try{const r=require("./.devos/reviewer.json");const d=r.permission_denials||[];console.log(`reviewer permission denials: ${d.length}`);for(const x of d.slice(0,20))console.log(" -",JSON.stringify(x).slice(0,300))}catch(e){console.log("reviewer.json unreadable:",e.message)}' 
