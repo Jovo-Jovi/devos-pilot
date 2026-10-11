@@ -79,6 +79,12 @@ test("entries are rule-separated list items, not cards", async ({ page }) => {
       .first()
       .evaluate((el) => getComputedStyle(el).borderTopWidth);
     expect(stampBorder).toBe("2px");
+    const titleSpacing = await page
+      .locator("li.notice")
+      .nth(0)
+      .getByRole("heading")
+      .evaluate((el) => getComputedStyle(el).wordSpacing);
+    expect(titleSpacing).toBe("0px");
   }
 });
 

@@ -94,6 +94,7 @@ html[dir="ltr"] .track { background-image: repeating-linear-gradient(to right, v
 .stamp b { display: block; font-family: var(--font-display); font-size: var(--text-4); font-weight: 600; font-variant-numeric: tabular-nums; }
 .stamp span { font-size: var(--text-1); }
 .notice :is(h2, h3) { font-size: var(--text-3); font-weight: 600; line-height: 1.35; margin: 0 0 var(--space-2); }
+html[lang="en"] .notice :is(h2, h3) { word-spacing: normal; }
 .notice p { margin: 0; color: var(--color-ink-muted); max-inline-size: 60ch; }
 
 /* Footer */
