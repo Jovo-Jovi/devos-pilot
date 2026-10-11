@@ -243,3 +243,22 @@ pass**, add `devos/verdict` (it appears after the first run that reports it). Le
 off, and leave yourself able to bypass so you can still push method patches. After this, GitHub will
 not let a task PR merge until Claude's verdict is PASS. Branch protection is free on public
 repositories; on a private repository it needs GitHub Pro.
+
+### 11.7 Before you merge: the gate doctor (PR-15)
+
+You do not need to diagnose a red check yourself. On every task PR the **Dev OS gate doctor**
+comment says what is wrong, whether it is the code or the environment, and who acts. Merge when the
+commit status **`devos/gate`** is green. Comment `/devos doctor` to check again at any time.
+
+| You see | What it means | What happens / what you do |
+|---|---|---|
+| ❌ ci checks, "environment (google-fonts / network / browser)" | The runner failed to download something; the code passed the cycle's own checks | Automatic: one re-run. If it fails again, merge on the verdict and file the prefilled change request (self-hosted fonts) the comment links |
+| ❌ ci checks, "waiting for your approval" | GitHub holds `ci` on bot-opened PRs | Press **Approve and run** on the run; the doctor reports again when it finishes |
+| ❌ ci checks, any other failure | Probably the task's code | Read Claude's second opinion in the comment, then paste its `/devos revise …` line as a comment, or press **Re-run failed jobs** if it calls it flaky |
+| ⚠️ Vercel preview "Blocked" | Hobby teams only deploy commits authored by the owner | Fixed by PR-15 for new attempts. Does not block the merge |
+| ⚠️ Vercel preview "behind the Vercel login" | Deployment Protection is on | Vercel → project → Settings → Deployment Protection → **Protection Bypass for Automation** → add a secret; GitHub → Settings → Secrets → Actions → `VERCEL_AUTOMATION_BYPASS_SECRET`. Until then screenshots come from the local build |
+| ❌ Review verdict "no verdict on …" | Commits landed after the review | Actions → devos-cycle → Run workflow: the task, the last attempt, **review_only** ticked |
+| ❌ Branch vs main "conflicts" | main changed under the task | **Resolve conflicts** on the PR, then `/devos doctor` |
+| ⏳ anything | The runner is handling it (a re-run, a usage-limit wait) | Nothing; the comment updates itself |
+
+The label `devos:needs-you` marks PRs where only you can act; filter the PR list by it.

@@ -24,7 +24,7 @@ function commonVars(cfg, rows) {
       ? `- Preview deployment of this branch: ${env.DEVOS_PREVIEW_URL} (check it with \`node scripts/devos/probe.mjs --base ${env.DEVOS_PREVIEW_URL} /ar /en\`).\n`
       : "",
     SCREENS_LINE: screens.length
-      ? `- \`.devos/screens/\`: ${screens.length} full-page screenshots (desktop 1280 and phone 390) of this branch. **Look at them with the Read tool.**\n`
+      ? `- \`.devos/screens/\`: ${screens.length} full-page screenshots (desktop 1280 and phone 390) of this branch (\`.devos/screens/SOURCE.txt\` says whether they come from the preview or the local build). **Look at them with the Read tool.**\n`
       : "",
   };
 }

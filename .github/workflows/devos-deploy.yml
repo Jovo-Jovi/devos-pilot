@@ -56,7 +56,12 @@ jobs:
           if [ "$TARGET" = "production" ]; then ENV=production; FLAG=--prod; else ENV=preview; FLAG=; fi
           npx --yes vercel@latest pull --yes --environment="$ENV" --token="$VERCEL_TOKEN"
           npx --yes vercel@latest build $FLAG --token="$VERCEL_TOKEN"
-          url=$(npx --yes vercel@latest deploy --prebuilt $FLAG --token="$VERCEL_TOKEN" | tail -1)
+          # From a copy without .git (PR-15): a Hobby team blocks commits not authored by its owner,
+          # and auto-merges are committed by the runner.
+          stage=$(mktemp -d); cp -a .vercel "$stage/"
+          url=$(cd "$stage" && npx --yes vercel@latest deploy --prebuilt $FLAG --token="$VERCEL_TOKEN" \
+                --meta devosBranch=main --meta devosSha="$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" | tail -1)
+          rm -rf "$stage"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "::notice title=Dev OS::Deployed $(git rev-parse --short HEAD) to $TARGET: $url"
       - name: Smoke test the deployment

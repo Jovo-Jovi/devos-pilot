@@ -291,8 +291,13 @@ jobs:
             echo "::warning title=Dev OS::Vercel pull/build failed or timed out; reviewing without a preview"
             tail -n 40 .devos/logs/vercel.log; rm -rf .vercel; exit 0
           fi
-          url=$(vc deploy --prebuilt 2>> .devos/logs/vercel.log | tail -1) || true
-          rm -rf .vercel
+          # Deploy from a copy without .git (PR-15): a Hobby team blocks deployments whose commit
+          # author is not the owner, and the runner commits as devos-runner. --meta keeps the link to
+          # the branch for the gate doctor.
+          stage=$(mktemp -d); cp -a .vercel "$stage/"
+          url=$(cd "$stage" && vc deploy --prebuilt --meta devosBranch="$BR" --meta devosSha="$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" \
+                2>> "$GITHUB_WORKSPACE/.devos/logs/vercel.log" | tail -1) || true
+          rm -rf .vercel "$stage"
           case "$url" in https://*) ;; *) echo "::warning title=Dev OS::Vercel deploy gave no URL"; tail -n 40 .devos/logs/vercel.log; exit 0 ;; esac
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "preview: $url"
@@ -304,6 +309,7 @@ jobs:
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
+          # screens.mjs falls back to the local build when the preview shows the Vercel login (PR-15).
           if [ -f package.json ] && grep -q '"@playwright/test"' package.json; then
             pnpm exec playwright install --with-deps chromium > .devos/logs/playwright-install.log 2>&1 || true
             if [ -n "${{ steps.preview.outputs.url }}" ]; then
@@ -409,6 +415,7 @@ jobs:
               echo "::notice title=Dev OS::$TASK merged; next task dispatched." ;;
             human_gate)
               gh pr edit "$PRN" --repo "$REPO" --add-label "devos:human-gate"
+              gh workflow run devos-doctor.yml --repo "$REPO" --ref main -f pr="$PRN" || true
               echo "::notice title=Dev OS::$TASK PASSED and waits at a human gate. Review and merge the PR to continue." ;;
             retry)
               gh workflow run devos-cycle.yml --repo "$REPO" --ref main -f task="$TASK" -f attempt="$NEXT_ATTEMPT"
@@ -418,6 +425,7 @@ jobs:
               echo "::warning title=Dev OS::$TASK parked: Claude usage/rate limit. devos-resume re-runs the review hourly." ;;
             halt)
               gh pr edit "$PRN" --repo "$REPO" --add-label "devos:halted"
+              gh workflow run devos-doctor.yml --repo "$REPO" --ref main -f pr="$PRN" || true
               echo "::warning title=Dev OS::$TASK halted. A human decision is needed (see the PR comment)." ;;
             *) echo "::error::unknown action '$ACTION'"; exit 1 ;;
           esac
@@ -450,6 +458,7 @@ jobs:
           echo "::error title=Dev OS::The cycle stopped on a runner failure (a guard, a missing secret or fence, or a push). Nothing was merged."
           gh pr edit "${PRN:-$BR}" --repo "$REPO" --add-label "devos:halted" 2>/dev/null || true
           gh pr comment "${PRN:-$BR}" --repo "$REPO" --body "Dev OS runner stopped on a failure in run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Nothing was merged. Fix the cause, then re-run devos-cycle with task=$TASK attempt=$ATTEMPT." 2>/dev/null || true
+          [ -n "$PRN" ] && gh workflow run devos-doctor.yml --repo "$REPO" --ref main -f pr="$PRN" 2>/dev/null || true
 
   # OD-08 §4: wait out a usage limit inside Actions instead of relying on GitHub's best-effort cron.
   # Claude's session limits reset within about five hours, so a wait up to resume.inline_wait_max_minutes
