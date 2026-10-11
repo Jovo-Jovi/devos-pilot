@@ -5,16 +5,23 @@
 // Usage: node scripts/devos/probe.mjs [--port 3100] [--no-server] /path ...
 //        node scripts/devos/probe.mjs --base https://<preview>.vercel.app /path ...   (a deployment;
 //        sends VERCEL_AUTOMATION_BYPASS_SECRET as x-vercel-protection-bypass when it is set)
+//        --strict  exit 1 if a path is unreachable, answers 401/403/5xx, or redirects to the Vercel login
+//        (a 404 is evidence, not a failure). A --base that is not an https:// URL is an error (PR-16).
 import { spawn } from "node:child_process";
 import http from "node:http";
 import { existsSync } from "node:fs";
 import { P } from "./lib.mjs";
 
 const argv = process.argv.slice(2);
+const strict = argv.includes("--strict");
 const portIdx = argv.indexOf("--port");
 const port = portIdx >= 0 ? Number(argv[portIdx + 1]) : 3100;
 const baseIdx = argv.indexOf("--base");
-const base = baseIdx >= 0 ? argv[baseIdx + 1].replace(/\/$/, "") : "";
+const base = baseIdx >= 0 ? String(argv[baseIdx + 1] ?? "").replace(/\/$/, "") : "";
+if (baseIdx >= 0 && !/^https?:\/\/\S+$/.test(base)) {
+  console.error(`probe: --base needs a deployment URL, got "${base}"; refusing to probe a local server instead`);
+  process.exit(2);
+}
 const noServer = argv.includes("--no-server") || Boolean(base);
 const paths = argv.filter((a, i) => a.startsWith("/") && i !== portIdx + 1 && i !== baseIdx + 1);
 if (!paths.length) paths.push("/");
@@ -77,6 +84,11 @@ try {
       console.log(`${path} → ${r.status}${r.error ? " (" + r.error + ")" : ""}`);
       if (html) console.log(`  html lang="${lang}" dir="${dir}"`);
       for (const h of HEADERS) if (r.headers[h]) console.log(`  ${h}: ${r.headers[h]}`);
+      const login = /vercel\.com\/(sso|login)/.test(String(r.headers.location ?? ""));
+      if (strict && (r.status === 0 || r.status === 401 || r.status === 403 || r.status >= 500 || login)) {
+        console.error(`probe: FAIL ${path} → ${r.status}${login ? " (Vercel login)" : ""}`);
+        exit = 1;
+      }
     }
   }
 } finally {

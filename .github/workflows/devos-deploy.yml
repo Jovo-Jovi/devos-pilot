@@ -56,15 +56,15 @@ jobs:
           if [ "$TARGET" = "production" ]; then ENV=production; FLAG=--prod; else ENV=preview; FLAG=; fi
           npx --yes vercel@latest pull --yes --environment="$ENV" --token="$VERCEL_TOKEN"
           npx --yes vercel@latest build $FLAG --token="$VERCEL_TOKEN"
-          # From a copy without .git (PR-15): a Hobby team blocks commits not authored by its owner,
-          # and auto-merges are committed by the runner.
-          stage=$(mktemp -d); cp -a .vercel "$stage/"
-          url=$(cd "$stage" && npx --yes vercel@latest deploy --prebuilt $FLAG --token="$VERCEL_TOKEN" \
-                --meta devosBranch=main --meta devosSha="$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" | tail -1)
-          rm -rf "$stage"
+          # Uploads from this directory with .git moved aside, and fails unless Vercel returns a URL (PR-16).
+          url=$(bash scripts/devos/vercel-deploy.sh main $FLAG)
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "::notice title=Dev OS::Deployed $(git rev-parse --short HEAD) to $TARGET: $url"
       - name: Smoke test the deployment
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: node scripts/devos/probe.mjs --base "${{ steps.d.outputs.url }}" / /ar /en /fr
+          URL: ${{ steps.d.outputs.url }}
+        run: |
+          # Probe the deployment itself, never a local server: an empty URL is a failure (PR-16).
+          case "$URL" in https://*) ;; *) echo "::error title=Dev OS::No deployment URL to smoke test"; exit 1 ;; esac
+          node scripts/devos/probe.mjs --base "$URL" --strict / /ar /en /fr

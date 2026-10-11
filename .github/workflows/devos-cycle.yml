@@ -291,13 +291,10 @@ jobs:
             echo "::warning title=Dev OS::Vercel pull/build failed or timed out; reviewing without a preview"
             tail -n 40 .devos/logs/vercel.log; rm -rf .vercel; exit 0
           fi
-          # Deploy from a copy without .git (PR-15): a Hobby team blocks deployments whose commit
-          # author is not the owner, and the runner commits as devos-runner. --meta keeps the link to
-          # the branch for the gate doctor.
-          stage=$(mktemp -d); cp -a .vercel "$stage/"
-          url=$(cd "$stage" && vc deploy --prebuilt --meta devosBranch="$BR" --meta devosSha="$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" \
-                2>> "$GITHUB_WORKSPACE/.devos/logs/vercel.log" | tail -1) || true
-          rm -rf .vercel "$stage"
+          # Uploads from this directory with .git moved aside (no commit author for Vercel to block)
+          # and prints a URL only when Vercel returned one (PR-15, PR-16).
+          url=$(DEVOS_VERCEL_LOG="$GITHUB_WORKSPACE/.devos/logs/vercel.log" bash scripts/devos/vercel-deploy.sh "$BR") || true
+          rm -rf .vercel
           case "$url" in https://*) ;; *) echo "::warning title=Dev OS::Vercel deploy gave no URL"; tail -n 40 .devos/logs/vercel.log; exit 0 ;; esac
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "preview: $url"
