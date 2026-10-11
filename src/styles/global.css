@@ -82,11 +82,20 @@ html[dir="ltr"] .track { background-image: repeating-linear-gradient(to right, v
 .row.is-today + .row { border-color: transparent; }
 .row.is-today .day { color: var(--color-lapis); font-weight: 600; }
 
-/* Interim until T10 (NoticeEntry replaces NoticeCard) */
-.notice-list { display: flex; flex-direction: column; gap: var(--space-5); }
-.notice-card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-stamp); padding: var(--space-4); }
-.notice-card :is(h2, h3) { font-size: var(--text-3); font-weight: 600; line-height: 1.35; margin: 0; }
-.notice-card p { margin-block: var(--space-2) 0; }
+/* Notices */
+.notices { list-style: none; margin: 0; padding: 0; }
+.notice { display: grid; grid-template-columns: 4.75rem 1fr; gap: var(--space-5); padding-block: var(--space-5); }
+.notice + .notice { border-block-start: 1px solid var(--color-line); }
+.stamp {
+  align-self: start; text-align: center; color: var(--color-stamp);
+  border: 0.125rem solid var(--color-stamp); border-radius: var(--radius-stamp);
+  padding-block: var(--space-2); line-height: 1.1;
+}
+.stamp b { display: block; font-family: var(--font-display); font-size: var(--text-4); font-weight: 600; font-variant-numeric: tabular-nums; }
+.stamp span { font-size: var(--text-1); }
+.notice :is(h2, h3) { font-size: var(--text-3); font-weight: 600; line-height: 1.35; margin: 0 0 var(--space-2); }
+html[lang="en"] .notice :is(h2, h3) { word-spacing: normal; }
+.notice p { margin: 0; color: var(--color-ink-muted); max-inline-size: 60ch; }
 
 /* Footer */
 .site-footer { margin-block-start: var(--space-7); background: var(--color-surface); border-block-start: 1px solid var(--color-line); }
@@ -102,4 +111,6 @@ html[dir="ltr"] .track { background-image: repeating-linear-gradient(to right, v
   .axis, .row { grid-template-columns: 1fr; row-gap: var(--space-1); }
   .axis > :first-child { display: none; }
   .times { grid-column: 1; }
+  .notice { grid-template-columns: 3.75rem 1fr; gap: var(--space-4); }
+  .stamp b { font-size: var(--text-3); }
 }

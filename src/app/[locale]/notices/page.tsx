@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { NoticeCard } from "@/components/NoticeCard";
+import { NoticeEntry } from "@/components/NoticeEntry";
 import { PendingState } from "@/components/PendingState";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -27,16 +27,16 @@ export default async function NoticesPage({
       <main className="wrap">
         <h1 className="page-title">{messages.nav.notices}</h1>
         {published.length > 0 ? (
-          <div className="notice-list">
+          <ol className="notices">
             {published.map((notice) => (
-              <NoticeCard
+              <NoticeEntry
                 key={notice.id}
                 locale={locale}
                 notice={notice}
                 headingLevel="h2"
               />
             ))}
-          </div>
+          </ol>
         ) : (
           <PendingState message={messages.state.pendingNotices} />
         )}

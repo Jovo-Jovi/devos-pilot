@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { NoticeCard } from "@/components/NoticeCard";
+import { NoticeEntry } from "@/components/NoticeEntry";
 import { StatusChip } from "@/components/StatusChip";
 import { TodayLine } from "@/components/TodayLine";
 import { Timetable } from "@/components/Timetable";
@@ -49,16 +49,16 @@ export default async function LocalePage({
         <section aria-labelledby="latest">
           <h2 id="latest">{messages.section.latestNotices}</h2>
           {latestNotices.length > 0 ? (
-            <div className="notice-list">
+            <ol className="notices">
               {latestNotices.map((notice) => (
-                <NoticeCard
+                <NoticeEntry
                   key={notice.id}
                   locale={locale}
                   notice={notice}
                   headingLevel="h3"
                 />
               ))}
-            </div>
+            </ol>
           ) : (
             <PendingState message={messages.state.pendingNotices} />
           )}

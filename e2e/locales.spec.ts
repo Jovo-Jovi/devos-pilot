@@ -92,14 +92,14 @@ test("published notices render and the home teaser links to the notices page", a
   const drafts = noticeRows.filter((row) => row.status === "draft");
 
   await page.goto("/en/notices");
-  const cards = page.locator("article.notice-card");
-  await expect(cards).toHaveCount(published.length);
+  const entries = page.locator("li.notice");
+  await expect(entries).toHaveCount(published.length);
   for (const row of published) {
-    const card = cards.filter({
+    const entry = entries.filter({
       has: page.getByRole("heading", { name: row.titleEn, exact: true }),
     });
-    await expect(card).toHaveCount(1);
-    await expect(card.locator("bdi")).toHaveText(row.publishedOn);
+    await expect(entry).toHaveCount(1);
+    await expect(entry.locator("time")).toHaveAttribute("datetime", row.publishedOn);
   }
   for (const row of drafts) {
     await expect(page.getByText(row.titleEn, { exact: true })).toHaveCount(0);
@@ -108,7 +108,7 @@ test("published notices render and the home teaser links to the notices page", a
   const teaserCount = Math.min(3, published.length);
   for (const locale of ["ar", "en"] as const) {
     await page.goto(`/${locale}`);
-    await expect(page.locator("article.notice-card")).toHaveCount(teaserCount);
+    await expect(page.locator("li.notice")).toHaveCount(teaserCount);
     const allNotices = page.getByRole("link", {
       name: catalogue(locale).link.allNotices,
       exact: true,

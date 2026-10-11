@@ -35,6 +35,6 @@ describe("pending states when content is empty", () => {
     });
     const html = renderToStaticMarkup(element);
     expect(html).toContain(messages.state.pendingNotices);
-    expect(html).not.toContain('class="notice-card"');
+    expect(html).not.toContain('class="notices"');
   });
 });

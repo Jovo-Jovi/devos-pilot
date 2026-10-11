@@ -91,3 +91,20 @@ The home hero shows an open-now status chip and a today line, and the timetable 
 today's row. All three are computed on the client in Africa/Cairo after hydration and render
 nothing on the server. The time logic is pure and unit-tested at fixed instants. `pnpm check`
 exits 0. Awaiting verdict.
+
+---
+
+## 2026-10-10 — T10 design v2 notices (builder, Grok 4.7)
+
+`NoticeCard` is replaced by date-stamped `NoticeEntry` rows: an ordered list, a `DateStamp`
+(day over the localised month from `Intl`) at the inline start, and a 1px rule between entries.
+The stamp outline is `0.125rem`, which is 2px at the 16px root and passes `guard:design`. CF-005
+is closed. `pnpm check` exits 0. Awaiting verdict.
+
+---
+
+## 2026-10-11 — T10 design v2 notices, attempt 3 (builder, Grok 4.7)
+
+English notice titles on the notices page are `h2`, so they were taking the display word spacing
+from `global.css` line 42. One rule sets `word-spacing: normal` on those titles only. The notices
+e2e test asserts the computed value is `0px` in both locales. `pnpm check` exits 0. Awaiting verdict.
