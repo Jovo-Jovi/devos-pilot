@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P05 Staff editor on Supabase (J4) · **Last verdict:** T15 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P05 Staff editor on Supabase (J4) · **Last verdict:** T16 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -22,8 +22,9 @@
 | T13 | Public pages read published rows from the database, cached by tag | PASS a1 — docs/reviews/T13-a1.md |
 | T14 | Staff sign-in: password, TOTP enrolment and challenge, session proxy, staff headers | PASS a2 — docs/reviews/T14-a2.md |
 | T15 | Staff invitation: confirm link, set password, then TOTP | PASS a1 — docs/reviews/T15-a1.md |
-| T16 | Notices editor: create, edit, publish, unpublish; public pages refresh by tag | built — awaiting verdict |
+| T16 | Notices editor: create, edit, publish, unpublish; public pages refresh by tag | PASS a1 — docs/reviews/T16-a1.md |
+| T17 | Opening-hours editor: add, change and remove periods | built — awaiting verdict |
 
 ## Next action
 
-T16 is built on `task/T16` and awaits the heavyweight review (risk 3). It adds no migration, so there is no schema gate; the human's merge is the sign-off. Next is T17: the opening-hours editor.
+T17 is built on `task/T17` and awaits the review (risk 2; the diff touches server actions and `src/lib/supabase/**`, so the review is deep). It adds no migration, so there is no schema gate; a PASS merges without the human gate. Next is T18: the whole-zone end-to-end proof.

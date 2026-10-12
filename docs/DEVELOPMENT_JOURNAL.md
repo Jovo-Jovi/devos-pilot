@@ -144,3 +144,9 @@ An invited staff member opens one confirm link, sets a password, enrols TOTP, an
 ## 2026-10-12 — T16 notices editor, attempt 1 (builder, Grok 4.7)
 
 Staff at AAL2 list every `LibraryNotice`, create one as a draft, edit it, publish it and unpublish it. Each successful write calls `updateTag("library-notices")`, so `/ar`, `/en`, `/ar/notices` and `/en/notices` show the change on the next request without a rebuild. There is no delete. `zod` checks the five fields against the date and non-empty rules. `pnpm check` exits 0. Awaiting the heavyweight review.
+
+---
+
+## 2026-10-12 — T17 opening-hours editor, attempt 1 (builder, Grok 4.7)
+
+Staff at AAL2 see the week from Saturday to Friday and add, change and remove an `OpeningSlot`. Each successful write calls `updateTag("opening-slots")`, so the home timetable, the status chip and the today line follow on the next request without a rebuild. `zod` checks the day, the `HH:MM` pair and the optional note pair. `pnpm check` exits 0. Awaiting verdict.
