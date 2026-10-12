@@ -1,24 +1,19 @@
-# Plain CI for pushes to main and human PRs (the runner's own PRs are skipped, PR-23). The cycle runs the same checks inline, because pushes made
-# with the default GITHUB_TOKEN do not trigger other workflows (set DEVOS_PAT to have this run on
-# runner PRs too).
+# Plain CI on main (PR-25). Pull requests are checked before merge by devos-cycle itself: it posts the
+# result as the commit status devos/checks on the PR's head, and re-checks after merging the latest
+# main into the branch. ci does not run on pull requests, because on a public repository GitHub holds
+# bot-opened PR runs for an approval nobody gives, and they expire as meaningless red "failures".
 name: ci
 
 on:
   push:
     branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   checks:
-    # PR-23: the runner's own PRs (task/*, intake/*) are checked by devos-cycle itself, on the same code,
-    # with the result folded into devos/verdict (PR-08). Running ci there again only adds a second,
-    # differently provisioned run that can fail on the environment alone, so it is skipped.
-    if: >-
-      github.event_name != 'pull_request' ||
-      !(startsWith(github.head_ref, 'task/') || startsWith(github.head_ref, 'intake/'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
