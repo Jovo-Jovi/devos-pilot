@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P05 Staff editor on Supabase (J4) · **Last verdict:** T12 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P05 Staff editor on Supabase (J4) · **Last verdict:** T13 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -19,8 +19,9 @@
 | T10 | Design v2 date-stamped notices and final visual check | PASS a3 — docs/reviews/T10-a3.md (gate G-Design-v2 signed by the human's merge) |
 | T11 | Backend module: Supabase project, first migration with RLS, pgTAP proof, client helpers | PASS a1 — docs/reviews/T11-a1.md (schema change signed by the human's merge) |
 | T12 | Move notices and opening hours from the JSON files into the database | PASS a1 — docs/reviews/T12-a1.md (migration signed by the human's merge) |
-| T13 | Public pages read published rows from the database, cached by tag | built — awaiting verdict |
+| T13 | Public pages read published rows from the database, cached by tag | PASS a1 — docs/reviews/T13-a1.md |
+| T14 | Staff sign-in: password, TOTP enrolment and challenge, session proxy, staff headers | built — awaiting verdict |
 
 ## Next action
 
-T13 is built on `task/T13` and awaits the reviewer's verification (risk 2). It adds no migration, so its PASS merges without the human gate. From then on, production builds read the hosted database, so the OD-10 §10 setup must be done first (docs/reviews/T12-a1.md, carry-forward (a)). Next is T14: staff sign-in with password and TOTP, the session proxy and the staff headers.
+T14 is built on `task/T14` and awaits the heavyweight review (risk 3). It adds no migration, so there is no schema gate; the human's merge is the sign-off. Next is T15: staff invitation — confirm link, set password, then the TOTP enrolment from T14.
