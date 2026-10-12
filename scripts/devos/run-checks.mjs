@@ -90,7 +90,17 @@ for (const name of [...cfg.required_checks, ...cfg.optional_checks]) {
     // Playwright needs its browser; install quietly when the project uses it.
     spawnSync("pnpm", ["exec", "playwright", "install", "--with-deps", "chromium"], { cwd: P(), stdio: "ignore", shell: process.platform === "win32" });
   }
-  results.push({ ...run(name, "pnpm", ["run", name]), required });
+  let r = run(name, "pnpm", ["run", name]);
+  // PR-24: a build that failed only because the Google Fonts download failed is retried (up to 3 tries).
+  const fontRe = cfg.retry_build_on ? new RegExp(cfg.retry_build_on, "i") : null;
+  for (let i = 2; name === "build" && r.status === "fail" && fontRe && i <= 3; i++) {
+    const log = readFileSync(P(".devos/logs/build.log"), "utf8");
+    if (!fontRe.test(log)) break;
+    console.log(`build: the Google Fonts download failed; retry ${i} of 3`);
+    spawnSync("sleep", ["20"]);
+    r = { ...run(name, "pnpm", ["run", name]), retried: i - 1 };
+  }
+  results.push({ ...r, required });
 }
 
 // Checks must not change tracked files. If they did (e.g. next build rewrote next-env.d.ts), record
