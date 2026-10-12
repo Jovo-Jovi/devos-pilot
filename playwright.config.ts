@@ -13,6 +13,13 @@ export default defineConfig({
     {
       name: "chromium",
       use: { browserName: "chromium" },
+      testIgnore: /staff-notices\.spec\.ts/,
+    },
+    {
+      name: "editor",
+      use: { browserName: "chromium" },
+      testMatch: /staff-notices\.spec\.ts/,
+      dependencies: ["chromium"],
     },
   ],
   webServer: {

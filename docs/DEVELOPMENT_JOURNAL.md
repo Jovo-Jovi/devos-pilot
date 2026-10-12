@@ -138,3 +138,9 @@ Staff sign in with a password, enrol or answer a TOTP factor, and reach the staf
 ## 2026-10-12 — T15 staff invitation, attempt 1 (builder, Grok 4.7)
 
 An invited staff member opens one confirm link, sets a password, enrols TOTP, and reaches the staff home. The confirm route is the only route handler. Public pages stay static and cookieless. The local invitation template points at `/ar/staff/auth/confirm` with `token_hash` and `type=invite`. `pnpm check` exits 0. Awaiting the heavyweight review.
+
+---
+
+## 2026-10-12 — T16 notices editor, attempt 1 (builder, Grok 4.7)
+
+Staff at AAL2 list every `LibraryNotice`, create one as a draft, edit it, publish it and unpublish it. Each successful write calls `updateTag("library-notices")`, so `/ar`, `/en`, `/ar/notices` and `/en/notices` show the change on the next request without a rebuild. There is no delete. `zod` checks the five fields against the date and non-empty rules. `pnpm check` exits 0. Awaiting the heavyweight review.
