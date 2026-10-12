@@ -25,7 +25,7 @@ The runner reads the table below, and `guard:phases` checks it.
 | T14 | P05 | J6 | Staff sign-in: password, TOTP enrolment and challenge, session proxy, staff headers | 3 | — | [x] | PASS a2 — docs/reviews/T14-a2.md |
 | T15 | P05 | J6 | Staff invitation: confirm link, set password, then TOTP | 3 | — | [x] | PASS a1 — docs/reviews/T15-a1.md |
 | T16 | P05 | J6 | Notices editor: create, edit, publish, unpublish; public pages refresh by tag | 3 | — | [x] | PASS a1 — docs/reviews/T16-a1.md |
-| T17 | P05 | J6 | Opening-hours editor: add, change and remove periods | 2 | — | [ ] | — |
+| T17 | P05 | J6 | Opening-hours editor: add, change and remove periods | 2 | — | [x] | PASS a1 — docs/reviews/T17-a1.md |
 | T18 | P05 | J6 | Whole-zone end-to-end proof against the CI database | 2 | G-Staff-editor | [ ] | — |
 
 ## Phase outlines (the reviewer writes each fence from these)
