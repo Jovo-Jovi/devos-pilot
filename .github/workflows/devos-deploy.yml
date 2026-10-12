@@ -100,7 +100,17 @@ jobs:
         run: |
           if [ "$TARGET" = "production" ]; then ENV=production; FLAG=--prod; else ENV=preview; FLAG=; fi
           npx --yes vercel@latest pull --yes --environment="$ENV" --token="$VERCEL_TOKEN"
-          npx --yes vercel@latest build $FLAG --token="$VERCEL_TOKEN"
+          # PR-24: next/font downloads the Google Fonts during the build, and that download sometimes fails
+          # (Turbopack "next/font/google queries have exactly one entry"). Retry that failure, and only that.
+          set -o pipefail
+          built=0
+          for i in 1 2 3; do
+            if npx --yes vercel@latest build $FLAG --token="$VERCEL_TOKEN" 2>&1 | tee "$RUNNER_TEMP/build.log"; then built=1; break; fi
+            grep -qiE "$(node -e 'console.log(require("./devos.config.json").retry_build_on)')" "$RUNNER_TEMP/build.log" || break
+            echo "::warning title=Dev OS::the build could not download the Google Fonts (try $i of 3); retrying in 30 seconds"
+            sleep 30
+          done
+          [ "$built" = 1 ] || { echo "::error title=Dev OS::the build failed; the database step above already ran, the site was not deployed"; exit 1; }
           # Uploads from this directory with .git moved aside, and fails unless Vercel returns a URL (PR-16).
           url=$(bash scripts/devos/vercel-deploy.sh main $FLAG)
           echo "url=$url" >> "$GITHUB_OUTPUT"

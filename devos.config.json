@@ -188,5 +188,7 @@
   },
   "heavy": {
     "$comment": "PR-20. A run is heavy when its review uses reviewer.gate_model or xhigh effort, or its fence builds at xhigh. Repository variable DEVOS_HEAVY: notify (default) announces it in the 'Dev OS: run notices' issue; hold also waits for '/devos go' before a heavy task's first attempt."
-  }
+  },
+  "retry_build_on": "next/font/google queries have exactly one entry|turbopack-next/internal/font/google|Failed to fetch .*Google Fonts|fonts\\.googleapis\\.com.*(ETIMEDOUT|ECONNRESET|fetch failed)",
+  "retry_build_note": "PR-24: a build failure whose log matches retry_build_on is the Google Fonts download, not the code; run-checks and devos-deploy retry it up to 3 times."
 }
