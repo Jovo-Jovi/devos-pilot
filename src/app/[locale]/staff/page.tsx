@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Bidi } from "@/components/Bidi";
@@ -37,6 +38,9 @@ async function StaffHomeBody({ locale }: { locale: Locale }) {
         {messages.staff.signedInAs}{" "}
         <Bidi>{member.email}</Bidi>
       </p>
+      <Link className={styles.editorLink} href={`/${locale}/staff/notices`}>
+        {messages.staff.noticesLink}
+      </Link>
       <form className={styles.form} action={signOut.bind(null, locale)}>
         <button className={styles.secondary} type="submit">
           {messages.staff.signOutSubmit}

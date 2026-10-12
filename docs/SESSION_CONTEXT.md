@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P05 Staff editor on Supabase (J4) · **Last verdict:** T14 PASS a2 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P05 Staff editor on Supabase (J4) · **Last verdict:** T15 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -21,8 +21,9 @@
 | T12 | Move notices and opening hours from the JSON files into the database | PASS a1 — docs/reviews/T12-a1.md (migration signed by the human's merge) |
 | T13 | Public pages read published rows from the database, cached by tag | PASS a1 — docs/reviews/T13-a1.md |
 | T14 | Staff sign-in: password, TOTP enrolment and challenge, session proxy, staff headers | PASS a2 — docs/reviews/T14-a2.md |
-| T15 | Staff invitation: confirm link, set password, then TOTP | built — awaiting verdict |
+| T15 | Staff invitation: confirm link, set password, then TOTP | PASS a1 — docs/reviews/T15-a1.md |
+| T16 | Notices editor: create, edit, publish, unpublish; public pages refresh by tag | built — awaiting verdict |
 
 ## Next action
 
-T15 is built on `task/T15` and awaits the heavyweight review (risk 3). It adds no migration, so there is no schema gate; the human's merge is the sign-off. Next is T16: the notices editor.
+T16 is built on `task/T16` and awaits the heavyweight review (risk 3). It adds no migration, so there is no schema gate; the human's merge is the sign-off. Next is T17: the opening-hours editor.

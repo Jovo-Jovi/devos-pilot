@@ -111,3 +111,67 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
+
+.editorLink {
+  color: var(--color-lapis);
+  font-weight: 500;
+  min-block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  inline-size: fit-content;
+}
+
+.editorLink:focus-visible {
+  outline: 0.125rem solid var(--color-lapis);
+  outline-offset: 0.1875rem;
+}
+
+.confirm {
+  margin: 0;
+  color: var(--color-open);
+}
+
+.statusPublished {
+  margin: 0;
+  color: var(--color-open);
+}
+
+.statusDraft {
+  margin: 0;
+  color: var(--color-ink-muted);
+}
+
+:global(.notice) .statusPublished {
+  color: var(--color-open);
+}
+
+:global(.notice) .statusDraft {
+  color: var(--color-ink-muted);
+}
+
+.entryTitle {
+  overflow-wrap: anywhere;
+}
+
+.area {
+  min-block-size: 8rem;
+  resize: vertical;
+}
+
+.dateField {
+  display: block;
+  inline-size: 100%;
+}
+
+.dateField bdi {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  white-space: normal;
+}
+
+.dateControl {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
