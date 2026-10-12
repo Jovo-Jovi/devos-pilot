@@ -1,6 +1,8 @@
 # ADR-001 — Content store is version-controlled JSON
 
-**Status:** Accepted, 2026-10-10 (D-01) · **Deviation from:** Dev OS v2 §9 (Supabase Postgres)
+**Status:** Accepted, 2026-10-10 (D-01). Superseded for `LibraryNotice` and `OpeningSlot` by ADR-002
+(OD-10, DRAFT until the intake PR for issue #14 merges); it still holds for `LibraryProfile`.
+**Deviation from:** Dev OS v2 §9 (Supabase Postgres)
 
 ## Context
 

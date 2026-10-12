@@ -142,3 +142,46 @@ the phone layout. A visible departure is a FAIL.
 | Present | all regions | as composed |
 | Pending | hours, notices | `PendingState` with `state.pendingHours` / `state.pendingNotices`; never "lorem", never "TODO" |
 | Not found | unknown route | Next.js 404 in the default locale |
+
+## 9. Staff pages: the `operator` zone (issue #14, OD-10 §8)
+
+Approved with OD-10, which the human signs by merging the intake PR. Visitors never see these pages,
+and there is no mockup for them. They compose §1–§6 and add **no token, colour, face or component
+style of their own**. The public pages (§4) do not change.
+
+1. **Frame.** `SiteHeader` (with the staff path, so that `LocaleSwitch` keeps it), then
+   `<main className="wrap">`, then `SiteFooter`, exactly as on the public pages. The page title is an
+   `h1` with the `.page-title` style (§4, notices page). Sections use the `h2` style of §2. The staff
+   home lists links to the editors that exist so far, and a sign-out button.
+2. **Forms.**
+   - One column, with `max-inline-size: 40rem` for the fields.
+   - Each field has a visible `<label>` above its control, and a hint or error below it, linked with
+     `aria-describedby`.
+   - The gap between fields is `--space-5`, and between label and control `--space-2`.
+   - Bilingual pairs sit one after the other, Arabic first, with the directions of `I18N_MODEL.md` §7.
+3. **Controls.** Native `input`, `textarea`, `select` and `button`:
+   - Fields: `--color-surface` background, a 1px `--color-line` border, `--radius-stamp`, padding
+     `--space-3`, Readex Pro `--text-2`. The focus ring follows §6.
+   - Dates use `type="date"`, times `type="time"`, the TOTP code `inputmode="numeric"`
+     `autocomplete="one-time-code"`, and the password `autocomplete="current-password"` (or
+     `new-password` when setting one).
+   - Buttons have `min-block-size: 2.75rem`. The primary button has a `--color-lapis` background with
+     `--color-surface` text. The secondary button is outlined like `LocaleSwitch`: lapis border and
+     text.
+4. **States.**
+   - An error message uses `--color-stamp`, and a confirmation `--color-open`. Both are announced
+     with `role="status"`.
+   - In lists, a notice's status reads "Published" in `--color-open` or "Draft" in
+     `--color-ink-muted`, never by colour alone.
+5. **Lists.**
+   - The notices list reuses the `NoticeEntry` rhythm: 1px separators, title in the §2 notice-title
+     style. It adds the status and an "Edit" link.
+   - The hours editor shows Saturday → Friday rows like `Timetable` (§3): the day name, then each
+     period's times in `Bidi`, each with change and remove controls, and an "Add period" control per
+     day.
+6. **TOTP enrolment.** The QR image is shown at `inline-size: 12rem` on `--color-surface`. The secret
+   is shown in `Bidi` for manual entry, followed by the code field.
+7. **Quality floor (§6) applies in full.** That means focus rings, AA contrast, logical properties
+   only, no horizontal scroll at 390px and 44px tap targets.
+8. **The visual check for staff tasks** reads the staff screenshots that the task's e2e saves, in both
+   locales and at 1280px and 390px, against this section and §1–§6.
