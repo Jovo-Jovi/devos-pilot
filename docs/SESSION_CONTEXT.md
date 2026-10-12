@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P05 Staff editor on Supabase (J4) · **Last verdict:** T10 PASS a3 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P05 Staff editor on Supabase (J4) · **Last verdict:** T11 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -17,8 +17,9 @@
 | T08 | Design v2 timetable (replaces OpeningHours) | PASS a1 — docs/reviews/T08-a1.md |
 | T09 | Design v2 hero: open-now status chip, today line, today highlight | PASS a1 — docs/reviews/T09-a1.md |
 | T10 | Design v2 date-stamped notices and final visual check | PASS a3 — docs/reviews/T10-a3.md (gate G-Design-v2 signed by the human's merge) |
-| T11 | Backend module: Supabase project, first migration with RLS, pgTAP proof, client helpers | built — awaiting verdict |
+| T11 | Backend module: Supabase project, first migration with RLS, pgTAP proof, client helpers | PASS a1 — docs/reviews/T11-a1.md (schema change signed by the human's merge) |
+| T12 | Move notices and opening hours from the JSON files into the database | built — awaiting verdict |
 
 ## Next action
 
-T11 is built on `task/T11` and awaits the heavyweight review (risk 3). Its PASS stops at the human gate because it changes the schema (PR-17): the human reviews the migration and merges, and with `DEVOS_SUPABASE=true` the production deploy backs up and applies it before the app (PR-18). Next is T12: the notices and opening hours move into the database by a migration.
+T12 is built on `task/T12` and awaits the heavyweight review (risk 3). Its PASS stops at the human gate because it adds a migration (PR-17): the human reviews it and merges, and with `DEVOS_SUPABASE=true` the production deploy backs up and applies it before the app (PR-18). Next is T13: the public pages read published rows from the database, cached by tag.
