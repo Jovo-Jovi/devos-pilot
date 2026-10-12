@@ -3,8 +3,9 @@ import { NoticeEntry } from "@/components/NoticeEntry";
 import { PendingState } from "@/components/PendingState";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { libraryNotices, libraryProfile } from "@/content/library-content";
+import { libraryProfile } from "@/content/library-content";
 import { selectPublishedNotices } from "@/content/notices";
+import { readPublishedLibraryNotices } from "@/content/readers";
 import { isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 
@@ -16,7 +17,7 @@ export default async function NoticesPage({
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const messages = getMessages(locale);
-  const published = selectPublishedNotices(libraryNotices);
+  const published = selectPublishedNotices(await readPublishedLibraryNotices());
   return (
     <>
       <SiteHeader

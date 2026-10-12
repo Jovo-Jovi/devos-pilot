@@ -21,7 +21,7 @@ The runner reads the table below, and `guard:phases` checks it.
 | T10 | P04 | J5 | Design v2 date-stamped notices and final visual check | 2 | G-Design-v2 | [x] | PASS a3 — docs/reviews/T10-a3.md |
 | T11 | P05 | J4 | Backend module: Supabase project, first migration with RLS, pgTAP proof, client helpers | 3 | — | [x] | PASS a1 — docs/reviews/T11-a1.md |
 | T12 | P05 | J4 | Move notices and opening hours from the JSON files into the database | 3 | — | [x] | PASS a1 — docs/reviews/T12-a1.md |
-| T13 | P05 | J5 | Public pages read published rows from the database, cached by tag | 2 | — | [ ] | — |
+| T13 | P05 | J5 | Public pages read published rows from the database, cached by tag | 2 | — | [x] | PASS a1 — docs/reviews/T13-a1.md |
 | T14 | P05 | J6 | Staff sign-in: password, TOTP enrolment and challenge, session proxy, staff headers | 3 | — | [ ] | — |
 | T15 | P05 | J6 | Staff invitation: confirm link, set password, then TOTP | 3 | — | [ ] | — |
 | T16 | P05 | J6 | Notices editor: create, edit, publish, unpublish; public pages refresh by tag | 3 | — | [ ] | — |
