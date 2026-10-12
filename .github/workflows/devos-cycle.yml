@@ -39,6 +39,11 @@ on:
         type: boolean
         required: false
         default: false
+      reuse_review:
+        description: "With review_only: keep the review file this attempt already wrote and only re-decide (PR-21)"
+        type: boolean
+        required: false
+        default: false
       go:
         description: "Start now even if DEVOS_HEAVY=hold would hold this heavy task (PR-20)"
         type: boolean
@@ -352,18 +357,31 @@ jobs:
             echo "No Playwright in the project; no screenshots."
           fi
 
+      - name: Review plan and evidence pack (PR-22)
+        id: rp
+        if: steps.bs.outputs.state == 'ok'
+        run: |
+          node scripts/devos/review-mode.mjs --task "$TASK" --attempt "$ATTEMPT"
+          if [ -f .devos/supabase.env ]; then set -a; . .devos/supabase.env; set +a; fi
+          node scripts/devos/evidence.mjs --task "$TASK" --attempt "$ATTEMPT"
+          sed -n '1,12p' .devos/evidence.md
+
       - name: Reviewer — Claude Code
         id: reviewer
-        if: steps.bs.outputs.state == 'ok'
-        timeout-minutes: 45
+        # reuse_review (PR-21): a complete review file from this attempt is kept; verdict.mjs reads it.
+        if: steps.bs.outputs.state == 'ok' && !(inputs.reuse_review && hashFiles(format('docs/reviews/{0}-a{1}.md', env.TASK, env.ATTEMPT)) != '')
+        timeout-minutes: 75
         env:
           OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          MODEL: ${{ needs.resolve.outputs.reviewer_model }}
-          TURNS: ${{ needs.resolve.outputs.reviewer_max_turns }}
-          EFFORT: ${{ needs.resolve.outputs.reviewer_effort }}
-          FALLBACK: ${{ needs.resolve.outputs.reviewer_fallback }}
+          MODEL: ${{ steps.rp.outputs.model || needs.resolve.outputs.reviewer_model }}
+          TURNS: ${{ steps.rp.outputs.max_turns || needs.resolve.outputs.reviewer_max_turns }}
+          EFFORT: ${{ steps.rp.outputs.effort || needs.resolve.outputs.reviewer_effort }}
+          FALLBACK: ${{ steps.rp.outputs.fallback || needs.resolve.outputs.reviewer_fallback }}
           DEVOS_PREVIEW_URL: ${{ steps.preview.outputs.url }}
+          DEVOS_REVIEW_MODE: ${{ steps.rp.outputs.mode }}
+          DEVOS_REVIEW_REASONS: ${{ steps.rp.outputs.reasons }}
+          DEVOS_REVIEW_CRITICAL: ${{ steps.rp.outputs.critical }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           DEVOS_BUILDER_MODEL: ${{ steps.bm.outputs.model }}
           DEVOS_BUILDER_EFFORT: ${{ steps.bm.outputs.effort }}

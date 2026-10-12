@@ -3,7 +3,7 @@
 // Usage: node scripts/devos/render-prompt.mjs builder|reviewer|revise Tnn attempt [--out file]
 //        node scripts/devos/render-prompt.mjs intake - - [--out file]          (OD-08 §3)
 // Environment it reads when set: DEVOS_BUILDER_MODEL, DEVOS_BUILDER_EFFORT, DEVOS_BUILDER_FAST,
-// DEVOS_PREVIEW_URL, DEVOS_ISSUE, DEVOS_INTAKE_RESUME.
+// DEVOS_PREVIEW_URL, DEVOS_ISSUE, DEVOS_INTAKE_RESUME, DEVOS_REVIEW_MODE, DEVOS_REVIEW_REASONS, DEVOS_REVIEW_CRITICAL.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { P, parsePhases, isHumanGate, taskAfter, config, fail } from "./lib.mjs";
 
@@ -60,8 +60,11 @@ export function renderPrompt(role, task, attempt) {
       : "",
     PREV_REVIEW_LINE: hasPrev ? `- \`${prevReview}\`: your previous verdict on this task.\n` : "",
     RISK3_LINE: row.risk >= 3
-      ? "This is **risk 3**: you are the heavyweight review (Dev OS §11). Read every changed line, not a sample."
+      ? "This is **risk 3**: you are the heavyweight review (Dev OS §11). Read every changed line of the critical paths, not a sample."
       : "",
+    REVIEW_MODE_BLOCK: (process.env.DEVOS_REVIEW_MODE || "deep") === "light"
+      ? `**This is a LIGHT review** (${process.env.DEVOS_REVIEW_REASONS || "risk 1–2, nothing critical touched"}). Work from the pack and the report; spot-check the diff where the fence is specific. Aim for about 20 tool calls.`
+      : `**This is a DEEP review** (${process.env.DEVOS_REVIEW_REASONS || "risk 3, a gate, or a critical path"}). Still evidence first, but read every changed line of the critical paths${process.env.DEVOS_REVIEW_CRITICAL ? ` (${process.env.DEVOS_REVIEW_CRITICAL.split(",").map((p) => "`" + p + "`").join(", ")})` : ""}, and use a targeted probe where the pack cannot settle a security or data question.`,
   };
 
   return fill(role, vars);

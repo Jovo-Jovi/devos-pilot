@@ -26,18 +26,45 @@
       "3": "claude-opus-5-5"
     },
     "gate_model": "claude-opus-5-5",
-    "max_turns": 80,
+    "max_turns": 150,
     "timeout_minutes": 40,
     "effort_by_risk": {
-      "1": "high",
-      "2": "high",
-      "3": "xhigh"
+      "1": "medium",
+      "2": "medium",
+      "3": "high"
     },
-    "gate_effort": "xhigh",
-    "intake_effort": "xhigh",
-    "intake_effort_small": "high",
+    "gate_effort": "high",
+    "intake_effort": "high",
+    "intake_effort_small": "medium",
     "fallback_model": "claude-sonnet-5-5",
-    "model_note": "Official Claude ids (claude-opus-5-5, claude-sonnet-5-5). Opus 5.5 and Sonnet 5.5 default to medium effort in Claude Code, so the runner always passes --effort. --fallback-model only applies when the primary is overloaded or unavailable, never on usage limits."
+    "model_note": "Official Claude ids (claude-opus-5-5, claude-sonnet-5-5). Opus 5.5 and Sonnet 5.5 default to medium effort in Claude Code, so the runner always passes --effort. --fallback-model only applies when the primary is overloaded or unavailable, never on usage limits.",
+    "review_note": "PR-22, evidence-first review: the builder does the work and proves it, the runner runs every check and writes .devos/evidence.md, and the reviewer judges that evidence. scripts/devos/review-mode.mjs picks the mode after the build: light (risk 1-2, nothing critical touched) or deep (risk 3, a gate, or a deep_paths file in the diff). A retry raises the effort one step.",
+    "modes": {
+      "light": {
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "max_turns": 50
+      },
+      "deep": {
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "max_turns": 120
+      }
+    },
+    "deep_paths": [
+      "supabase/migrations/**",
+      "supabase/config.toml",
+      "src/lib/supabase/**",
+      "src/proxy.ts",
+      "src/middleware.ts",
+      "src/**/auth/**",
+      "src/**/*actions.ts",
+      "next.config.ts",
+      "package.json",
+      "vercel.json",
+      ".github/**"
+    ],
+    "escalate_on_retry": true
   },
   "required_checks": [
     "guards",

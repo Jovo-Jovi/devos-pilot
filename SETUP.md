@@ -278,6 +278,14 @@ any task reviewed by Opus or at extra-high effort (risk 3 and gate tasks), or bu
 - Every verdict and plan comment ends with what the run cost (minutes, turns, tokens), so you can
   see which kinds of task are expensive.
 
+### 11.9 Light and deep reviews (PR-22)
+Grok builds and proves; Claude judges. After each build the runner writes an evidence pack and
+picks the review depth: **light** (Sonnet, medium effort) for ordinary risk 1–2 work, **deep**
+(Opus, high effort) for risk 3, gates, and any change to migrations, auth, headers, dependencies or
+workflows (`reviewer.deep_paths` in `devos.config.json`). The PR's verdict comment says which it was
+and what it cost. To make the reviewer stricter or lighter, change `reviewer.modes` or
+`reviewer.deep_paths` there.
+
 ## 12. Backend module: Supabase (PR-17 to PR-19)
 
 The method side is already in the repository. The product side arrives through change requests,

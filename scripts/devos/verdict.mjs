@@ -64,11 +64,30 @@ function schemaChanges() {
   }
 }
 
+/** A verdict rebuilt from a complete review file: first line VERDICT, a Next prompt line, the ledger. */
+function verdictFromFile() {
+  if (!existsSync(P(reviewFile))) return null;
+  const text = readFileSync(P(reviewFile), "utf8");
+  const first = (text.split(/\r?\n/).find((l) => l.trim()) ?? "").trim();
+  const m = /^VERDICT: (PASS|FAIL)$/.exec(first);
+  const next = /^Next prompt:\s*(.+)$/m.exec(text)?.[1]?.trim() ?? "";
+  if (!m || !/^Ledger:|^- D\d/m.test(text) || !next) return null; // not a finished review
+  const fence = /^(docs\/fences\/T\d{2}\.md)\b/.exec(next)?.[1] ?? null;
+  if (fence && !existsSync(P(fence))) return null;
+  const cls = /^Classification of non-PASS items:\s*(.+)$/m.exec(text)?.[1] ?? "";
+  return {
+    verdict: m[1], task, attempt, review_file: reviewFile, fence_written: fence,
+    classification: [], fence_defect: /FENCE DEFECT/.test(cls) && !/^NONE/.test(cls),
+    summary: `Verdict taken from \`${reviewFile}\` (the reviewer's run ended before its summary).`,
+    human_attention: null,
+  };
+}
+
 // 1. The reviewer's structured output.
 let structured = null;
 try {
   const raw = JSON.parse(readFileSync(P(reviewerJson), "utf8"));
-  if (raw.is_error) notes.push(`reviewer run reported an error: ${String(raw.result ?? "").slice(0, 300)}`);
+  if (raw.is_error) notes.push(`reviewer run reported an error: ${String(raw.result ?? raw.subtype ?? "").slice(0, 300)}`);
   const denials = raw.permission_denials ?? [];
   if (denials.length) notes.push(`reviewer had ${denials.length} tool call(s) refused by permissions, e.g. ${JSON.stringify(denials[0]).slice(0, 200)}`);
   structured = raw.structured_output ?? null;
@@ -78,8 +97,20 @@ try {
 } catch (e) {
   notes.push(`could not read ${reviewerJson}: ${e.message}`);
 }
+// PR-21: the review file is the verdict of record; the structured answer is its summary. A reviewer
+// that wrote a complete review file but stopped before its final answer (most often the turn limit)
+// keeps its verdict: it is read from the file. A usage limit still parks the run (PR-12), because a
+// review cut short by a limit may be unfinished.
+const limitHit = looksLikeLimit(readText(reviewerJson), readText(".devos/reviewer.err"));
+if ((!structured || !["PASS", "FAIL"].includes(structured.verdict)) && !limitHit) {
+  const fromFile = verdictFromFile();
+  if (fromFile) {
+    structured = fromFile;
+    notes.push("the reviewer stopped before its structured answer (turn limit or a crash); the verdict was read from its complete review file (PR-21)");
+  }
+}
 if (!structured || !["PASS", "FAIL"].includes(structured.verdict)) {
-  if (looksLikeLimit(readText(reviewerJson), readText(".devos/reviewer.err"))) {
+  if (limitHit) {
     notes.push("the reviewer stopped on a Claude usage or rate limit");
     const nb = notBefore(`${readText(reviewerJson)}\n${readText(".devos/reviewer.err")}`, config().resume?.default_wait_minutes ?? 60);
     finish("WAIT", "quota_wait", {

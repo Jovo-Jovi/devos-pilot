@@ -17,6 +17,10 @@ Rules for this run:
   design in `docs/DESIGN_SYSTEM.md` and `docs/design/`, never improvise a look.
 - If the tree has `supabase/`, follow `.cursor/rules/70-supabase.mdc`. The local Supabase is running
   and its names are in your environment; you have no access to any hosted project.
+- **You do the heavy work and you prove it (PR-22).** Implement, write the tests that prove each
+  Done-when (including the refusals: what must be denied, rejected or hidden), and run them. The
+  reviewer judges your evidence and the runner's checks; it does not redo your work. Evidence you do
+  not paste is evidence that does not exist.
 - Before finishing, run every Done-when command yourself and copy its real output into the report.
 - Finish by writing `docs/reports/{{TASK}}.md`: append a section `## Attempt {{ATTEMPT}}` in the
   `devos-task-report` skill's format. Its first line is `STATUS: DONE` or `STATUS: HALT`.

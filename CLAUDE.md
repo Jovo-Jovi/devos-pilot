@@ -91,13 +91,23 @@ Classification of non-PASS items: HARD FAILURE | DOC CORRECTION | CARRY-FORWARD 
 Next prompt: <path of the fence written in this run, or none>
 ```
 
+## Evidence-first review (PR-22)
+
+The builder does the work and proves it; the runner runs every check and writes
+`.devos/evidence.md`. You judge that evidence: you do not re-run the check suite or build the next
+task. The runner picks a **light** review (risk 1–2, nothing critical touched) or a **deep** one
+(risk 3, a gate, or a critical path from `devos.config.json` `reviewer.deep_paths`); deep means every
+changed line of the critical paths and targeted probes, never a full rerun.
+
 ## Fence format (exactly the structure of `docs/fences/T01.md`)
 
 Header bullets (Phase · Station · Risk · Gate · Model · Review gate · Fence version · Branch ·
 Environment · Tools allowed · Context to read first) → Prompt (canonical) with Preconditions (HALT),
 numbered Steps, STOP block separating HALT from REDACT-AND-CONTINUE → Done when (commands and exact
 expected results) → Tests → Do NOT (including the protected paths and "no git/gh in automated
-runs"). A check in a fence must be true of what the fence itself lands. Counts over a changing
+runs"). A check in a fence must be true of what the fence itself lands. A fence is a
+specification, not the code: exact paths, names, interfaces and Done-when results, with code only
+where an exact text is the requirement (PR-22). Counts over a changing
 ledger state their arithmetic.
 
 ## Model class

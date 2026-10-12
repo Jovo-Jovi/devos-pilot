@@ -118,6 +118,10 @@ async function collect() {
       todo: [{ who: "auto", text: "Runner pushes do not always start `ci`; the cycle ran the same checks itself and the verdict reflects them (PR-08)." }] });
   } else if (ci.status !== "completed") {
     add({ key: "ci", label: "ci checks", level: "wait", state: `${ci.status} (attempt ${ci.run_attempt})`, link: ci.html_url, todo: [{ who: "auto", text: "ci is still running; the doctor checks again when it finishes." }] });
+  } else if (ci.conclusion === "action_required" && /^(task|intake)\//.test(f.branch)) {
+    // PR-21: on the runner's own PRs the cycle already ran these checks (PR-08), so a held ci is not a blocker.
+    add({ key: "ci", label: "ci checks", level: "info", state: "not run (GitHub holds it for approval)", link: ci.html_url,
+      todo: [{ who: "auto", text: "Not needed: the cycle ran the same checks on this branch, and a red one would have failed the verdict (PR-08). You may ignore the yellow \"Approve and run\" banner." }] });
   } else if (ci.conclusion === "action_required") {
     add({ key: "ci", label: "ci checks", level: "block", state: "waiting for your approval", link: ci.html_url,
       todo: [{ who: "you", text: `GitHub holds \`ci\` on bot-opened PRs until someone approves it. Open the [run](${ci.html_url}) and press **Approve and run** (or the yellow banner on the PR's Checks tab). The doctor runs again when ci finishes.` }] });
