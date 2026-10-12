@@ -110,12 +110,21 @@ async function collect() {
     }
   }
 
-  // 2. The ci workflow on the head commit.
+  // 2. Checks before merge (PR-25): the cycle posts devos/checks on the PR's head. A ci run, if one was
+  // started by hand, is shown below it.
+  const statuses = (await ghSafe(`repos/${REPO}/commits/${sha}/status`)).statuses ?? [];
+  const chk = statuses.find((s) => s.context === "devos/checks");
+  if (chk) {
+    const lvl = chk.state === "success" ? "ok" : chk.state === "pending" ? "wait" : "block";
+    add({ key: "checks", label: "Checks (devos/checks)", level: lvl, state: chk.description || chk.state, link: chk.target_url,
+      todo: lvl === "block" ? [{ who: "auto", text: "A red required check fails the verdict (PR-08): the runner retries with a reissued fence, or halts after the last attempt." }] : [] });
+  } else if (task) {
+    add({ key: "checks", label: "Checks (devos/checks)", level: "info", state: "not posted on this commit (older runs did not post it)", todo: [] });
+  }
   const runs = (await ghSafe(`repos/${REPO}/actions/runs?head_sha=${sha}&per_page=50`)).workflow_runs ?? [];
   const ci = runs.filter((r) => r.name === "ci").sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
   if (!ci) {
-    add({ key: "ci", label: "ci checks", level: "info", state: "did not run on this commit",
-      todo: [{ who: "auto", text: "Runner pushes do not always start `ci`; the cycle ran the same checks itself and the verdict reflects them (PR-08)." }] });
+    // ci no longer runs on pull requests (PR-25); devos/checks above is the pre-merge check.
   } else if (ci.status !== "completed") {
     add({ key: "ci", label: "ci checks", level: "wait", state: `${ci.status} (attempt ${ci.run_attempt})`, link: ci.html_url, todo: [{ who: "auto", text: "ci is still running; the doctor checks again when it finishes." }] });
   } else if (ci.conclusion === "action_required" && /^(task|intake)\//.test(f.branch)) {
@@ -151,7 +160,24 @@ async function collect() {
   } else {
     const cmp = await ghSafe(`repos/${REPO}/compare/${pr.base.ref}...${sha}`);
     const behind = cmp.behind_by ?? 0;
-    add({ key: "main", label: "Branch vs main", level: "ok", state: behind ? `${behind} commit(s) behind, no conflicts` : "up to date", todo: [] });
+    // PR-25: a task PR waiting at the gate while main gained code is re-checked against that main,
+    // automatically and without a new review (review_only + reuse_review), before you merge it.
+    let codeMoved = [];
+    if (behind && task) {
+      const onMain = await ghSafe(`repos/${REPO}/compare/${sha}...${pr.base.ref}`);
+      codeMoved = (onMain.files ?? []).map((x) => x.filename).filter((n) => !n.startsWith("docs/"));
+    }
+    const verdict = statuses.find((s) => s.context === "devos/verdict");
+    const attempt = /attempt (\d+)/.exec(verdict?.description ?? "")?.[1];
+    if (codeMoved.length && labels.includes("devos:human-gate") && verdict?.state === "success" && attempt) {
+      const active = ((await ghSafe(`repos/${REPO}/actions/workflows/devos-cycle.yml/runs?per_page=10`)).workflow_runs ?? [])
+        .some((r) => r.status !== "completed");
+      if (!active) f.recheck = { task, attempt };
+      add({ key: "main", label: "Branch vs main", level: "wait", state: `${behind} commit(s) behind; main changed ${codeMoved.length} code file(s)`,
+        todo: [{ who: "auto", text: active ? "A cycle run is active; the re-check against the latest main starts when it is free (comment `/devos doctor` to retry)." : "Re-checking this branch merged with the latest main (no new review). The doctor reports again when it finishes." }] });
+    } else {
+      add({ key: "main", label: "Branch vs main", level: "ok", state: behind ? `${behind} commit(s) behind, no conflicts${codeMoved.length ? "" : " (docs only)"}` : "up to date", todo: [] });
+    }
   }
   return save(f);
 }
@@ -320,6 +346,11 @@ async function publish() {
     await ghSafe(`repos/${REPO}/labels`, { method: "POST", body: { name: "devos:needs-you", color: "d93f0b", description: "The gate doctor found something only a human can do" } });
     if (needsYou) await ghSafe(`repos/${REPO}/issues/${f.pr}/labels`, { method: "POST", body: { labels: ["devos:needs-you"] } });
     else await ghSafe(`repos/${REPO}/issues/${f.pr}/labels/devos%3Aneeds-you`, { method: "DELETE" });
+  }
+  if (f.recheck) {
+    const r = await ghSafe(`repos/${REPO}/actions/workflows/devos-cycle.yml/dispatches`, { method: "POST",
+      body: { ref: "main", inputs: { task: f.recheck.task, attempt: String(f.recheck.attempt), review_only: "true", reuse_review: "true", go: "true" } } });
+    console.log(r?.error ? `re-check dispatch refused: ${r.error}` : `dispatched a re-check of ${f.recheck.task} against the latest main`);
   }
   if (f.rerun) {
     const r = await ghSafe(`repos/${REPO}/actions/runs/${f.rerun}/rerun-failed-jobs`, { method: "POST" });

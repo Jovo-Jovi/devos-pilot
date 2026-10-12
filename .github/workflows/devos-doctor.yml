@@ -19,6 +19,8 @@ on:
     types: [completed]
   issue_comment:
     types: [created]
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       pr:
@@ -37,9 +39,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # PR-25: when main moves, every PR waiting at a human gate is checked again by the doctor, which
+  # re-checks it against the new main if main gained code.
+  gates:
+    if: vars.DEVOS_PAUSED != 'true' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the doctor on every PR waiting at a gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          for pr in $(gh pr list --repo "$REPO" --state open --label "devos:human-gate" --json number --jq '.[].number'); do
+            gh workflow run devos-doctor.yml --repo "$REPO" --ref main -f pr="$pr"
+            echo "doctor dispatched for PR #$pr"
+          done
+
   doctor:
     if: >-
-      vars.DEVOS_PAUSED != 'true' && (
+      vars.DEVOS_PAUSED != 'true' && github.event_name != 'push' && (
         github.event_name == 'workflow_dispatch' ||
         (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request') ||
         (github.event_name == 'issue_comment' && github.event.issue.pull_request &&

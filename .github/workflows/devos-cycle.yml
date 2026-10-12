@@ -304,6 +304,10 @@ jobs:
             tail -n 3 .devos/logs/install.log
           fi
           node scripts/devos/run-checks.mjs
+          # PR-25: the result is a GitHub check on the PR before any merge.
+          bash scripts/devos/checks-status.sh "$(git rev-parse HEAD)"
+        env:
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
 
       - name: Vercel preview of this attempt (OD-08 §2)
         id: preview
@@ -429,12 +433,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
         run: |
+          CHECKED=$(node -e 'try{console.log(require("./.devos/ci-results.json").head||"")}catch{console.log("")}')
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "$TASK a$ATTEMPT: review — ${{ steps.v.outputs.verdict }} (${{ steps.v.outputs.action }})"
-            bash scripts/devos/sync-main.sh "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
-            git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$BR"
           fi
+          bash scripts/devos/sync-main.sh "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+          # PR-25: if main brought code changes while this attempt was reviewed, check the merged result
+          # again before anything can merge. A red re-check stops the merge.
+          moved=""
+          if [ -n "$CHECKED" ]; then
+            moved=$(git diff --name-only "$CHECKED" HEAD -- . ':(exclude)docs/**' ':(exclude).devos/**' || true)
+          fi
+          if [ -n "$moved" ] && [ "${{ steps.v.outputs.verdict }}" = "PASS" ]; then
+            echo "Code changed on main since the checks ran; re-checking the merged result:"
+            echo "$moved"
+            node scripts/devos/run-checks.mjs
+            if ! node -e 'process.exit(require("./.devos/ci-results.json").all_required_passed ? 0 : 1)'; then
+              echo "ACTION_OVERRIDE=halt" >> "$GITHUB_ENV"
+              echo "RECHECK_FAILED=1" >> "$GITHUB_ENV"
+            fi
+          fi
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$BR"
           if [ -z "$PRN" ]; then
             gh pr create --repo "$REPO" --base main --head "$BR" --title "$TASK — $NAME (review record)" \
               --body "Dev OS: the review of $TASK, on a branch whose code is already on main." --label devos --label "risk-$RISK"
@@ -446,6 +466,12 @@ jobs:
             WAIT) st=pending; d="Waiting for a usage limit to reset" ;;
             *)    st=failure; d="FAIL: $TASK attempt $ATTEMPT" ;;
           esac
+          if [ -n "$RECHECK_FAILED" ]; then
+            st=failure; d="Re-check after merging the latest main failed"
+            failed=$(node -e 'console.log(require("./.devos/ci-results.json").failed_required.join(", "))')
+            printf '\n\n**Re-check (PR-25):** main changed while this attempt was reviewed. The merged result fails: %s. Not merged; the gate doctor says what to do.\n' "$failed" >> .devos/verdict-summary.md
+          fi
+          bash scripts/devos/checks-status.sh "$(git rev-parse HEAD)"
           gh api "repos/$REPO/statuses/$(git rev-parse HEAD)" -f state="$st" -f context=devos/verdict -f description="$d" >/dev/null || true
           gh pr comment "$PRN" --repo "$REPO" --body-file .devos/verdict-summary.md
           cat .devos/verdict-summary.md >> "$GITHUB_STEP_SUMMARY"
@@ -457,6 +483,7 @@ jobs:
           ACTION: ${{ steps.v.outputs.action }}
           NEXT_ATTEMPT: ${{ steps.v.outputs.next_attempt }}
         run: |
+          ACTION="${ACTION_OVERRIDE:-$ACTION}"
           case "$ACTION" in
             merge)
               gh pr edit "$PRN" --repo "$REPO" --add-label "devos:auto-merged"
