@@ -39,6 +39,7 @@ async function SignInPanel({
     <SignInForm
       action={signInStaff.bind(null, locale)}
       refused={error === "refused"}
+      linkError={error === "link"}
       copy={messages.staff}
     />
   );

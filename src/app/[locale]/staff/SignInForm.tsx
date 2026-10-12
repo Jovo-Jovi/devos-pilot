@@ -13,6 +13,7 @@ type SignInCopy = {
   signInSubmit: string;
   errorGeneric: string;
   errorRefused: string;
+  errorLink: string;
 };
 
 const initialState: StaffFormState = { error: null };
@@ -21,10 +22,12 @@ export function SignInForm({
   action,
   copy,
   refused,
+  linkError,
 }: {
   action: (state: StaffFormState, formData: FormData) => Promise<StaffFormState>;
   copy: SignInCopy;
   refused: boolean;
+  linkError: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const emailHintId = "staff-email-hint";
@@ -36,6 +39,11 @@ export function SignInForm({
       {refused ? (
         <p className={styles.error} role="status">
           {copy.errorRefused}
+        </p>
+      ) : null}
+      {linkError ? (
+        <p className={styles.error} role="status">
+          {copy.errorLink}
         </p>
       ) : null}
       {showError ? (
