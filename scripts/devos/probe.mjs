@@ -11,6 +11,7 @@ import { spawn } from "node:child_process";
 import http from "node:http";
 import { existsSync } from "node:fs";
 import { P } from "./lib.mjs";
+import { readEnvFile } from "./supabase.mjs";
 
 const argv = process.argv.slice(2);
 const strict = argv.includes("--strict");
@@ -68,7 +69,7 @@ let server;
 if (!noServer) {
   if (!existsSync(P(".next"))) { console.error("probe: no .next build found — run `pnpm build` first"); process.exit(2); }
   server = spawn("pnpm", ["exec", "next", "start", "-p", String(port)], {
-    cwd: P(), stdio: "ignore", shell: process.platform === "win32", detached: process.platform !== "win32",
+    cwd: P(), env: { ...process.env, ...readEnvFile() }, stdio: "ignore", shell: process.platform === "win32", detached: process.platform !== "win32",
   });
 }
 

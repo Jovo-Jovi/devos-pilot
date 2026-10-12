@@ -6,6 +6,9 @@
 #   - or by hand: Actions → devos-deploy → Run workflow.
 # Git deploys are off in vercel.json so Vercel never deploys behind the method's back.
 # Needs: repository variable DEVOS_VERCEL=true and secrets VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
+# Backend module (PR-18): with supabase/ in the tree and DEVOS_SUPABASE=true, a production deploy first
+# takes an encrypted backup and applies the migrations (secrets SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD,
+# SUPABASE_PROJECT_REF, DEVOS_BACKUP_PASSPHRASE). The app's own Supabase variables live in Vercel.
 name: devos-deploy
 
 on:
@@ -48,6 +51,48 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           node scripts/guards/run-all.mjs
+      # Backend module (PR-18): the database moves before the app, and only after an encrypted backup.
+      # A failure here stops the job: the old app keeps running against the old schema.
+      - name: Supabase CLI
+        if: hashFiles('supabase/config.toml') != '' && vars.DEVOS_SUPABASE == 'true' && (inputs.target || 'production') == 'production'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Database — encrypted backup, then migrations
+        if: hashFiles('supabase/config.toml') != '' && vars.DEVOS_SUPABASE == 'true' && (inputs.target || 'production') == 'production'
+        timeout-minutes: 15
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          DEVOS_BACKUP_PASSPHRASE: ${{ secrets.DEVOS_BACKUP_PASSPHRASE }}
+        run: |
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF DEVOS_BACKUP_PASSPHRASE; do
+            [ -n "${!v}" ] || { echo "::error title=Dev OS::secret $v is not set; the database was not touched and nothing was deployed"; exit 1; }
+          done
+          hint="If the project is paused (free plan, a week without activity), restore it in the Supabase dashboard and re-run this workflow."
+          supabase link --project-ref "$SUPABASE_PROJECT_REF" -p "$SUPABASE_DB_PASSWORD" || { echo "::error title=Dev OS::supabase link failed. $hint"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/backup"
+          supabase db dump --linked -p "$SUPABASE_DB_PASSWORD" -f "$RUNNER_TEMP/backup/schema.sql"
+          supabase db dump --linked -p "$SUPABASE_DB_PASSWORD" --data-only -f "$RUNNER_TEMP/backup/data.sql"
+          # Data leaves the runner only encrypted (handbook §10.3: backups are encrypted).
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$DEVOS_BACKUP_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 -o "$RUNNER_TEMP/backup/data.sql.gpg" "$RUNNER_TEMP/backup/data.sql"
+          shred -u "$RUNNER_TEMP/backup/data.sql"
+          echo "Pending migrations:"
+          supabase db push --linked -p "$SUPABASE_DB_PASSWORD" --dry-run
+          supabase db push --linked -p "$SUPABASE_DB_PASSWORD" --yes
+          echo "::notice title=Dev OS::Backup taken and migrations applied to $SUPABASE_PROJECT_REF before the app deploy."
+      - name: Keep the backup (encrypted data, plain schema; 30 days)
+        if: hashFiles('supabase/config.toml') != '' && vars.DEVOS_SUPABASE == 'true' && (inputs.target || 'production') == 'production'
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/backup/schema.sql
+            ${{ runner.temp }}/backup/data.sql.gpg
+          retention-days: 30
+          if-no-files-found: error
       - name: Deploy
         id: d
         env:

@@ -33,13 +33,38 @@ Exactly one of three outcomes, then the structured answer the output schema requ
 List at most three precise questions in the structured answer.
 
 **C. reject** — the request breaks a non-waivable gate (the Boundary gate: no form, cookie, tracker,
-analytics or stored visitor data) or a signed decision that only a new client decision could change.
-Change no files. Explain which rule and offer the nearest compliant alternative.
+analytics or stored visitor data) or a signed decision that only a new client decision could change,
+**and** the request does not itself ask for that decision to change. Change no files. Explain which
+rule and offer the nearest compliant alternative.
+
+A request that explicitly asks to change the profile or open a data zone (a staff dashboard, a member
+area) is the human acting as the client (OD-02): accept it as a **DRAFT OD that amends the earlier OD
+by number**, never silently. It names each zone, its routes and whether it holds personal data, and
+updates the `devos:boundary` line in `docs/BOUNDARY_MODEL.md` (PR-19). Personal data from the public
+brings the Personal-Data Protection gate (handbook §10.3): write `docs/PROTECTION_MODEL.md` (each
+personal field, its purpose, who may read it, retention, deletion, export, the obligations of Egypt's
+Law 151 of 2020) and state in the OD that the repository must be private before that zone ships.
+
+## Requests that need stored data (backend module, `docs/method/FULLSTACK_MODULE.md`)
+
+- Write `docs/DATA_MODEL.md` in the intake PR: every table, column, owner, the RLS policy per role,
+  what anonymous visitors may read, and how the generated types are named. If an ADR names another
+  store, the OD supersedes it explicitly.
+- The **first** new task sets up the module and nothing else visible: `supabase init`, the local
+  config, client helpers (browser, server, server-only admin) on `@supabase/ssr`, the env names in
+  `devos.config.json` `modules.supabase.env`, the first migration with RLS, pgTAP tests in
+  `supabase/tests/`, a synthetic `supabase/seed.sql`, and the generated types file.
+- Every task that adds or changes a migration is **Risk 3**; it stops at the human gate anyway (PR-17).
+- Keep each migration small and forward-only; data moves (from `content/*.json`, say) are their own
+  task with a check that counts rows before and after.
+- Plan a final task that exercises the whole zone end to end against the CI database (e2e with
+  seeded test users) before the gate.
 
 ## Rules
 
 - Change only `docs/DECISIONS.md`, `docs/SCOPE.md`, `docs/PHASES.md`, `docs/fences/**`,
-  `docs/requests/**`, and model or design documents the request genuinely changes. Never code.
+  `docs/requests/**`, and model or design documents the request genuinely changes (including
+  `docs/DATA_MODEL.md`, `docs/PROTECTION_MODEL.md`, `docs/BOUNDARY_MODEL.md` and the brief). Never code.
 - Never renumber or edit existing tasks, ODs or verdicts.
 - Use the Read, Grep, Glob and Write/Edit tools; one plain command per Bash call.
 - Your final answer is the structured object.

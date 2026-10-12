@@ -13,6 +13,10 @@ Work in this order. Ask me only what research cannot answer, once, at the end of
 2. **Fit research** (§17): profile A or B, data classification, Include · Omit · Adapt for every
    layer, obligations (cite sources; Egypt Law 151 of 2020 when personal data is involved),
    existing estate, stack fit. Mark anything unverified as an **assumption**.
+   **Modules:** decide whether the project stores data. If it does, it adopts the backend module
+   (`docs/method/FULLSTACK_MODULE.md`): name every zone (staff dashboard, member area) and whether
+   it holds personal data, and plan `DATA_MODEL.md` (and `PROTECTION_MODEL.md` for personal data)
+   at J2, before any code.
 3. **Tooling review — Cursor marketplace.** Fetch `https://cursor.com/marketplace` and the Cursor
    models page `https://cursor.com/docs/models`. For each plugin, MCP server, skill or automation
    that could serve this project, decide Include · Omit with a reason, judged against:
@@ -29,6 +33,10 @@ Work in this order. Ask me only what research cannot answer, once, at the end of
 5. **Configure the surfaces**: `devos.config.json` (models, surfaces), `.cursor/rules/*` (fill the
    vocabulary and environment rules), `.cursor/mcp.example.json` and `devos/ci/mcp.ci.json` from
    step 3, `.cursor/cli.json` deny list, `CLAUDE.md` from the §15.1 template.
+   Write the `devos:boundary` line in `BOUNDARY_MODEL.md` with the profile and zones (PR-19). With
+   the backend module: keep `modules.supabase` in `devos.config.json`, `.cursor/rules/70-supabase.mdc`,
+   and plan T01 or the first J4 task to create `supabase/` (init, clients, first migration with RLS,
+   pgTAP tests, synthetic seed, generated types).
 6. **Issue fence T01** in the format of `docs/fences/T01.md` and rehearse every path it names.
 7. Hand me: the fit file for approval, the list of ODs I sign by pushing the bootstrap commit, and
    the setup steps from `SETUP.md` that change for this project.
@@ -37,6 +45,7 @@ Never write application code. Everything you produce is documents, configuration
 
 Where to run this: in the **new** project's repository, not in the pilot. Copy this command to
 `~/.claude/commands/` so it is available everywhere, then copy the pilot's `scripts/`, `devos/`,
-`.github/workflows/` and `docs/method/DEV_OS_V2_REVIEWER.md` into the new repository. Copy the
+`.github/workflows/`, `docs/method/DEV_OS_V2_REVIEWER.md` and `docs/method/FULLSTACK_MODULE.md` into
+the new repository (the module stays inactive until `supabase/config.toml` exists). Copy the
 pilot's `.claude/settings.json` **last**, after the bootstrap is written: its deny rules lock the
 reviewer out of everything but reviews and fences.

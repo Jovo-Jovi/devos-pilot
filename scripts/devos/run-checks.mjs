@@ -6,6 +6,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { P, config, changedPaths, git } from "./lib.mjs";
+import * as supa from "./supabase.mjs";
 
 const strict = process.argv.includes("--strict");
 const cfg = config();
@@ -28,8 +29,54 @@ function run(name, cmd, args) {
 }
 
 const results = [];
+
+// Supabase module (PR-17): a throwaway local database built from the migrations alone, before the
+// app's checks, so typecheck/test/build/e2e run against it. Its checks join the required set.
+const mod = supa.isActive() ? supa.moduleConfig() : null;
+const requiredChecks = [...cfg.required_checks, ...(mod?.required_checks ?? [])];
+const optionalChecks = [...cfg.optional_checks, ...(mod?.optional_checks ?? [])];
+if (mod) {
+  const t0 = Date.now();
+  const sec = () => Math.round((Date.now() - t0) / 1000);
+  const record = (name, r, command) => {
+    writeFileSync(P(`.devos/logs/${name}.log`), `$ ${command}\n${r.out}`);
+    results.push({ name, required: requiredChecks.includes(name), command, status: r.status === 0 ? "pass" : "fail", exit: r.status, seconds: sec(), tail: r.out.split(/\r?\n/).slice(-60).join("\n") });
+  };
+  if (!supa.cliPresent()) {
+    for (const name of [...(mod.required_checks ?? []), ...(mod.optional_checks ?? [])]) {
+      results.push({ name, required: requiredChecks.includes(name), status: "missing", tail: "the Supabase CLI is not installed (supabase/setup-cli in CI)" });
+    }
+  } else {
+    const st = supa.start();
+    writeFileSync(P(".devos/logs/supabase-start.log"), st.log);
+    if (!st.ok) {
+      record("db", { status: 1, out: st.log }, "supabase start");
+    } else {
+      Object.assign(process.env, st.env);
+      // db: every migration applies from zero, then the synthetic seed.
+      record("db", supa.sb(["db", "reset"]), "supabase db reset");
+      Object.assign(process.env, supa.writeEnv(supa.statusEnv() ?? {}));
+      // db-test: the pgTAP tests in supabase/tests (RLS proofs live here).
+      record("db-test", supa.sb(["test", "db"]), "supabase test db");
+      // types: the committed generated types match the schema the migrations produce.
+      const gen = supa.sb(["gen", "types", "typescript", "--local"]);
+      const file = mod.types_file;
+      let typesResult;
+      if (gen.status !== 0) typesResult = gen;
+      else if (!existsSync(P(file))) typesResult = { status: 1, out: `${file} does not exist; generate it with: supabase gen types typescript --local > ${file}` };
+      else {
+        const norm = (s) => s.replace(/\r\n/g, "\n").trim();
+        const same = norm(readFileSync(P(file), "utf8")) === norm(gen.stdout);
+        typesResult = { status: same ? 0 : 1, out: same ? `${file} matches the schema` : `${file} is out of date with the migrations; regenerate it with: supabase gen types typescript --local > ${file}` };
+      }
+      record("types", typesResult, `supabase gen types typescript --local (compared with ${file})`);
+      if ((mod.optional_checks ?? []).includes("db-lint")) record("db-lint", supa.sb(["db", "lint", "--fail-on", "error"]), "supabase db lint --fail-on error");
+    }
+  }
+}
+
 for (const name of [...cfg.required_checks, ...cfg.optional_checks]) {
-  const required = cfg.required_checks.includes(name);
+  const required = requiredChecks.includes(name);
   if (!hasPkg) {
     if (name === "guards") results.push({ ...run(name, "node", ["scripts/guards/run-all.mjs"]), required });
     else results.push({ name, required, status: "skipped-no-package", tail: "package.json does not exist yet" });
@@ -57,11 +104,13 @@ if (dirtied.length) {
 }
 
 const failedRequired = results.filter((r) => r.required && !["pass", "skipped-no-package"].includes(r.status));
+for (const name of requiredChecks) if (!results.some((r) => r.name === name)) failedRequired.push({ name });
 const summary = {
   generated: new Date().toISOString(),
   head: (() => { try { return git(["rev-parse", "HEAD"]); } catch { return null; } })(),
   has_package_json: hasPkg,
   all_required_passed: failedRequired.length === 0,
+  modules: mod ? ["supabase"] : [],
   failed_required: failedRequired.map((r) => r.name),
   checks_modified_tracked_files: dirtied,
   results,

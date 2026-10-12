@@ -9,6 +9,9 @@ const RULES = [
   { re: /\beyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{10,}/, label: "JWT / service key" },
   { re: /\b(CURSOR_API_KEY|ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN|DEVOS_PAT|SUPABASE_SERVICE_ROLE_KEY)\s*[=:]\s*["']?[A-Za-z0-9_\-]{16,}/, label: "secret assignment" },
   { re: /\b[a-z]{20}\.supabase\.co\b/, label: "Supabase project ref" },
+  { re: /\bsb_secret_[A-Za-z0-9_-]{16,}/, label: "Supabase secret key" },
+  { re: /\bsbp_[a-f0-9]{32,}/, label: "Supabase access token" },
+  { re: /\b(SUPABASE_SECRET_KEY|SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD|DEVOS_BACKUP_PASSPHRASE|VERCEL_TOKEN)\s*[=:]\s*["']?[A-Za-z0-9_\-]{16,}/, label: "secret assignment" },
   { re: /postgres(ql)?:\/\/[^\s:]+:[^\s@]+@/, label: "connection string with password" },
 ];
 const SKIP = [/^pnpm-lock\.yaml$/, /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|pdf|zip)$/i, /^scripts\/guards\/secrets\.mjs$/];

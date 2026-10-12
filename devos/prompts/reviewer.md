@@ -38,6 +38,21 @@ Next task: {{NEXT_TASK_OR_NONE}} · Human gate after a PASS: {{HUMAN_GATE}}
    alignment, the RTL mirror in `ar`, and the phone layout. A visible departure from the approved
    design is a FAIL (HARD FAILURE), not a carry-forward. Say in the verdict which screenshots you
    looked at.
+   **Data layer (any change under `supabase/` or to code that reads the database), PR-17:** the
+   runner's local Supabase is running and its names are in your environment (`.devos/supabase.env`).
+   Read every migration statement in the diff. For each table, state who can select, insert,
+   update and delete (anon, authenticated, staff claim) from its policies, and confirm it matches
+   `docs/DATA_MODEL.md`. Re-run `supabase test db` and `supabase db lint`, and query the policies
+   yourself: `psql "$SUPABASE_DB_URL" -c "select tablename, policyname, roles, cmd, qual, with_check from pg_policies where schemaname = 'public'"`.
+   Prove an anonymous read of a draft or another user's row is refused, with the command. The
+   secret key appears only in `server-only` modules and never in `.next/static` (Grep for
+   `SUPABASE_SECRET_KEY` and `service_role` there). Applied migrations are never edited
+   (`guard:data`). A schema change always stops at the human gate; say so in the verdict.
+   **Personal data (a zone with `personal_data: true` in `docs/BOUNDARY_MODEL.md`):** apply the
+   Personal-Data Protection gate (handbook §10.3) against `docs/PROTECTION_MODEL.md`: each personal
+   field has its stated purpose, access is role-limited in the database, deletion and export work
+   (with the command that proves it), retention is scheduled, and no real person's data is in seeds,
+   tests or logs.
 4. Write `docs/reviews/{{TASK}}-a{{ATTEMPT}}.md`. Its **first line is exactly** `VERDICT: PASS` or
    `VERDICT: FAIL`, then the Dev OS verdict format from `CLAUDE.md`. In `Next prompt:` give the path
    of the fence you write in step 5 (or "none"), not its full text. Describe carry-forward rows;

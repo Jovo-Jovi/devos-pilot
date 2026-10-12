@@ -60,6 +60,8 @@ const ENV_RULES = [
   { id: "browser", re: /Executable doesn't exist|browserType\.launch|Please run the following command to download new browsers/i,
     what: "the Playwright browser was not installed on the runner" },
   { id: "disk", re: /ENOSPC|No space left on device/i, what: "the GitHub runner ran out of disk" },
+  { id: "docker", re: /Cannot connect to the Docker daemon|toomanyrequests|pull rate limit|failed to pull image|error (pulling|running) (image|container)|container .* is not ready|health check timed out/i,
+    what: "the local Supabase stack (Docker) did not start on the runner" },
 ];
 const classify = (text) => ENV_RULES.find((r) => r.re.test(text)) ?? null;
 

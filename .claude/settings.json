@@ -43,7 +43,13 @@
       "Bash(sha256sum *)",
       "WebFetch(domain:nextjs.org)",
       "WebFetch(domain:cursor.com)",
-      "WebFetch(domain:code.claude.com)"
+      "WebFetch(domain:code.claude.com)",
+      "Bash(supabase test db)",
+      "Bash(supabase test db *)",
+      "Bash(supabase db lint)",
+      "Bash(supabase db lint *)",
+      "Bash(supabase status *)",
+      "Bash(psql *)"
     ],
     "deny": [
       "Edit(/src/**)",

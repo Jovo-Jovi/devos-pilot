@@ -70,7 +70,10 @@
         "vercel.json",
         "docs/design/**",
         "docs/requests/**",
-        ".github/ISSUE_TEMPLATE/**"
+        ".github/ISSUE_TEMPLATE/**",
+        ".cursor/rules/**",
+        ".cursor/skills/**",
+        "docs/method/FULLSTACK_MODULE.md"
       ]
     },
     "reviewer": {
@@ -94,7 +97,10 @@
         "docs/I18N_MODEL.md",
         "docs/SECURITY_MODEL.md",
         "docs/BOUNDARY_MODEL.md",
-        "docs/adr/**"
+        "docs/adr/**",
+        "docs/DATA_MODEL.md",
+        "docs/PROTECTION_MODEL.md",
+        "docs/PRODUCT_BRIEF.md"
       ]
     },
     "revise": {
@@ -107,5 +113,49 @@
   "resume": {
     "inline_wait_max_minutes": 330,
     "default_wait_minutes": 60
+  },
+  "modules": {
+    "$comment": "Optional stack modules (PR-17). A module is active when its detect file exists in the tree; its checks then join required_checks.",
+    "supabase": {
+      "detect": "supabase/config.toml",
+      "required_checks": [
+        "db",
+        "db-test",
+        "types"
+      ],
+      "optional_checks": [
+        "db-lint"
+      ],
+      "types_file": "src/lib/supabase/database.types.ts",
+      "start_exclude": [
+        "studio",
+        "imgproxy",
+        "edge-runtime",
+        "logflare",
+        "vector",
+        "supavisor"
+      ],
+      "env": {
+        "NEXT_PUBLIC_SUPABASE_URL": [
+          "API_URL"
+        ],
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": [
+          "PUBLISHABLE_KEY",
+          "ANON_KEY"
+        ],
+        "SUPABASE_SECRET_KEY": [
+          "SECRET_KEY",
+          "SERVICE_ROLE_KEY"
+        ],
+        "SUPABASE_DB_URL": [
+          "DB_URL"
+        ],
+        "SUPABASE_MAIL_URL": [
+          "MAILPIT_URL",
+          "INBUCKET_URL"
+        ]
+      },
+      "env_note": "Names the app reads, mapped from `supabase status -o env`. Local keys are the CLI's throwaway demo keys; production values live only in Vercel and GitHub secrets."
+    }
   }
 }

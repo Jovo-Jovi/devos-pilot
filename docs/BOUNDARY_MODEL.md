@@ -2,6 +2,12 @@
 
 Precedence 4.
 
+<!-- devos:boundary {"profile":"A","zones":[]} -->
+
+The line above is read by `guard:boundary` (PR-19). Only a signed OD changes it: it names the
+profile and any zone (a staff dashboard, a member area) where forms, cookies and route handlers
+are allowed. Outside a zone, §2 holds in full. Analytics and third-party scripts are never allowed.
+
 ## 1. The rule
 
 No table, column, storage, form, input, route handler, cookie, local storage, log line, analytics

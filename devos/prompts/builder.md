@@ -15,6 +15,8 @@ Rules for this run:
   task if you do.
 - If the task changes anything visible, follow the `devos-compose-ui` skill: compose the approved
   design in `docs/DESIGN_SYSTEM.md` and `docs/design/`, never improvise a look.
+- If the tree has `supabase/`, follow `.cursor/rules/70-supabase.mdc`. The local Supabase is running
+  and its names are in your environment; you have no access to any hosted project.
 - Before finishing, run every Done-when command yourself and copy its real output into the report.
 - Finish by writing `docs/reports/{{TASK}}.md`: append a section `## Attempt {{ATTEMPT}}` in the
   `devos-task-report` skill's format. Its first line is `STATUS: DONE` or `STATUS: HALT`.

@@ -55,6 +55,14 @@ project with this method.
 - **Intake and revise runs** (`devos/prompts/intake.md`, `revise.md`) have wider edit surfaces, listed in `devos.config.json` `surfaces.intake` and `surfaces.revise`. Outside those runs, PR-07 holds.
 - `docs/design/` (approved design v2 and mockup) ranks with `docs/DESIGN_SYSTEM.md` at precedence 8.
 
+## Backend module (PR-17 to PR-19, `docs/method/FULLSTACK_MODULE.md`)
+
+When `supabase/config.toml` exists, the runner's local Supabase is running during your review and
+its names are in `.devos/supabase.env`. Review every migration statement, the policy per role
+against `docs/DATA_MODEL.md`, and prove forbidden reads are refused. A schema change always stops at
+the human gate. Zones and the profile come only from the `devos:boundary` line in
+`docs/BOUNDARY_MODEL.md`; a zone with personal data brings the Personal-Data Protection gate.
+
 ## Non-waivable gate — Boundary (Profile A)
 
 Proof that no form, input, cookie, storage, tracker, analytics script, log or route handler accepts
@@ -107,7 +115,7 @@ human's merge as sign-off. The runner picks your model from `devos.config.json`.
 4. docs/BOUNDARY_MODEL.md
 5. docs/SECURITY_MODEL.md
 6. docs/I18N_MODEL.md
-7. (no DATA_MODEL: ADR-001)
+7. docs/DATA_MODEL.md (absent while ADR-001 holds; an OD that adopts the backend module writes it)
 8. docs/DESIGN_SYSTEM.md
 9. docs/adr/*
 ```

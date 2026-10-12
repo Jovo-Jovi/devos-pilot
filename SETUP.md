@@ -262,3 +262,52 @@ commit status **`devos/gate`** is green. Comment `/devos doctor` to check again 
 | ⏳ anything | The runner is handling it (a re-run, a usage-limit wait) | Nothing; the comment updates itself |
 
 The label `devos:needs-you` marks PRs where only you can act; filter the PR list by it.
+
+## 12. Backend module: Supabase (PR-17 to PR-19)
+
+The method side is already in the repository. The product side arrives through change requests,
+so the order is: set up the hosted project, add the secrets, then file the requests.
+
+### 12.1 A free Supabase organization and project for the pilot
+1. supabase.com/dashboard → your organization menu → **New organization**, plan **Free**, name it
+   `devos-pilot` (keeps the pilot away from any other organization and its bill).
+2. In it, **New project** `devos-pilot`, region **Central EU (Frankfurt)** (next to Vercel's `fra1`).
+   Generate a strong database password and keep it in your password manager.
+3. Project Settings → General: copy the **Reference ID**. Project Settings → API keys: note the
+   **publishable** and **secret** keys (they go into Vercel only, never into a file).
+4. Account → **Access Tokens** → generate one named `devos-pilot deploy`.
+
+### 12.2 GitHub secrets and variables
+Settings → Secrets and variables → Actions:
+- secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`;
+- secret `DEVOS_BACKUP_PASSPHRASE`: a long random passphrase. Keep a copy offline: without it the
+  encrypted backups cannot be opened;
+- variable `DEVOS_SUPABASE` = `true`.
+
+### 12.3 Vercel environment (Production only)
+Vercel → project → Settings → Environment Variables, environment **Production**:
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY`
+(mark it **Sensitive**). Leave Preview empty: previews are off while the module is active, and the
+review uses the local build against the CI database instead (PR-18).
+
+### 12.4 Auth settings in the hosted project
+Authentication → Sign In / Providers: turn **off** "Allow new users to sign up" while only staff
+have accounts (staff are invited from Authentication → Users → Invite). URL Configuration: Site URL
+= the production URL. Multi-factor: enable TOTP when the data model requires AAL2 for writes.
+
+### 12.5 Then file the change requests
+Use the two prepared requests (staff editor first; visitor accounts after its gate is signed).
+Each becomes an intake PR with its OD, data model and tasks; merging it signs the OD.
+
+### 12.6 Before the visitor-accounts zone ships
+Personal data from the public brings the Personal-Data Protection gate (handbook §10.3, PR-19):
+make the repository **private** again (Settings → General → Danger zone). On a private repository,
+branch protection for `devos/verdict` needs GitHub Pro; without it, keep merging only when
+`devos/verdict` and `devos/gate` are green. Vercel previews and deploys keep working (PR-15, PR-16).
+
+### 12.7 Things to know
+- Free projects pause after a week without activity; a production deploy then fails at
+  `supabase link` and says so. Restore the project in the dashboard and re-run `devos-deploy`.
+- Each cycle run starts a local Supabase in Docker, adding a few minutes.
+- To try the stack yourself: install the Supabase CLI and Docker, `supabase start`, `supabase db reset`.
+

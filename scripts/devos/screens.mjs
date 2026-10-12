@@ -10,6 +10,7 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { P } from "./lib.mjs";
+import { readEnvFile } from "./supabase.mjs";
 
 const argv = process.argv.slice(2);
 const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : d; };
@@ -50,7 +51,7 @@ const url = base || `http://127.0.0.1:${port}`;
 if (!base) {
   if (!existsSync(P(".next"))) { console.log("screens: no .next build; skipped"); process.exit(0); }
   server = spawn("pnpm", ["exec", "next", "start", "-p", String(port)], {
-    cwd: P(), stdio: "ignore", shell: process.platform === "win32", detached: process.platform !== "win32",
+    cwd: P(), env: { ...process.env, ...readEnvFile() }, stdio: "ignore", shell: process.platform === "win32", detached: process.platform !== "win32",
   });
   for (let i = 0; i < 120; i++) {
     try { await fetch(`${url}/`, { redirect: "manual" }); break; } catch { await new Promise((r) => setTimeout(r, 500)); }

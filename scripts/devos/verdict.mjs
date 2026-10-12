@@ -7,12 +7,13 @@
 //
 // Actions:
 //   merge       PASS, checks green, not a human gate, next fence present (OD-03 §3)
-//   human_gate  PASS on a risk-3 task, a gate task, or with no next fence (OD-03 §4)
+//   human_gate  PASS on a risk-3 task, a gate task, a schema change (PR-17), or with no next fence (OD-03 §4)
 //   retry       FAIL and attempt < max_attempts (OD-03 §5)
 //   halt        FAIL at max attempts, or the reviewer produced no usable verdict
 //   quota_wait  the reviewer hit a usage/rate limit: nothing recorded, same attempt, review-only
 //               resume by devos-resume (PR-12)
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { P, config, parsePhases, isHumanGate, taskAfter, updatePhasesRow, changedPaths, emit, fail } from "./lib.mjs";
 import { looksLikeLimit, readText, resumeMarker, notBefore } from "./limits.mjs";
 
@@ -50,6 +51,16 @@ function finish(verdict, action, extra = {}) {
   writeFileSync(P(".devos/verdict-summary.md"), summary);
   emit({ verdict, action, next_attempt: attempt + 1, summary_file: ".devos/verdict-summary.md", not_before: extra.notBefore ?? "" });
   process.exit(0);
+}
+
+/** Migration files this branch adds or changes against the base branch. */
+function schemaChanges() {
+  try {
+    const out = execFileSync("git", ["diff", "--name-only", `origin/${cfg.base_branch ?? "main"}...HEAD`, "--", "supabase/migrations"], { cwd: P(), encoding: "utf8" });
+    return out.split(/\r?\n/).filter(Boolean);
+  } catch {
+    return existsSync(P("supabase/migrations")) ? ["(could not diff against the base branch)"] : [];
+  }
 }
 
 // 1. The reviewer's structured output.
@@ -117,11 +128,16 @@ if (verdict === "PASS") {
     notes.push(`PASS but docs/fences/${next.task}.md was not written; the cycle cannot continue on its own`);
     finish("PASS", "human_gate", { summary: structured.summary, fence: null, human: `Write or request the fence for ${next.task}, then re-run the cycle.` });
   }
-  const gate = isHumanGate(row);
+  // PR-17: a schema change always stops for the human, whatever the task's risk or gate. Merging it
+  // is what lets the next production deploy apply the migration.
+  const schema = schemaChanges();
+  if (schema.length) notes.push(`schema change: ${schema.join(", ")}`);
+  const gate = isHumanGate(row) || schema.length > 0;
+  const why = isHumanGate(row) ? (row.risk >= 3 ? "Risk-3 task" : `Gate ${row.gate}`) : "Schema change (PR-17)";
   finish("PASS", gate ? "human_gate" : "merge", {
     summary: structured.summary,
     fence: structured.fence_written,
-    human: gate ? `${row.risk >= 3 ? "Risk-3 task" : `Gate ${row.gate}`}: review the PR and merge it to sign off. Merging restarts the cycle.` : structured.human_attention,
+    human: gate ? `${why}: review the PR${schema.length ? " and every migration in it" : ""} and merge it to sign off. Merging restarts the cycle.` : structured.human_attention,
   });
 }
 

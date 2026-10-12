@@ -19,7 +19,8 @@
       "Read(**)",
       "Write(**)",
       "Mcp(context7:*)",
-      "Mcp(playwright:*)"
+      "Mcp(playwright:*)",
+      "Shell(supabase)"
     ],
     "deny": [
       "Shell(git:push)",
@@ -46,7 +47,12 @@
       "Write(.cursor/cli.json)",
       "Write(.cursor/hooks.json)",
       "Write(.cursor/hooks/**)",
-      "Write(content/**)"
+      "Write(content/**)",
+      "Shell(supabase:link)",
+      "Shell(supabase:login)",
+      "Shell(supabase:projects)",
+      "Shell(supabase:secrets)",
+      "Write(supabase/.temp/**)"
     ]
   }
 }

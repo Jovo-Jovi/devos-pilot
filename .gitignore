@@ -4,6 +4,10 @@
 # Dev OS: the real MCP config is local; commit only .cursor/mcp.example.json
 .cursor/mcp.json
 
+# Supabase CLI local state (the stack itself runs in Docker)
+supabase/.temp/
+supabase/.branches/
+
 # Local environment
 .env
 .env.*
