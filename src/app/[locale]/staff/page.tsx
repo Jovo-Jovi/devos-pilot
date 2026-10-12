@@ -41,6 +41,9 @@ async function StaffHomeBody({ locale }: { locale: Locale }) {
       <Link className={styles.editorLink} href={`/${locale}/staff/notices`}>
         {messages.staff.noticesLink}
       </Link>
+      <Link className={styles.editorLink} href={`/${locale}/staff/hours`}>
+        {messages.staff.hoursLink}
+      </Link>
       <form className={styles.form} action={signOut.bind(null, locale)}>
         <button className={styles.secondary} type="submit">
           {messages.staff.signOutSubmit}
