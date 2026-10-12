@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P04 Design v2 (J5) · **Last verdict:** T10 FAIL a2 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P05 Staff editor on Supabase (J4) · **Last verdict:** T10 PASS a3 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -16,8 +16,9 @@
 | T07 | Design v2 shell: tokens, faces, header, footer, page frame | PASS a1 — docs/reviews/T07-a1.md |
 | T08 | Design v2 timetable (replaces OpeningHours) | PASS a1 — docs/reviews/T08-a1.md |
 | T09 | Design v2 hero: open-now status chip, today line, today highlight | PASS a1 — docs/reviews/T09-a1.md |
-| T10 | Design v2 date-stamped notices and final visual check | a1 FAIL (fence defect) — docs/reviews/T10-a1.md; a2 FAIL (fence defect) — docs/reviews/T10-a2.md; a3 built — awaiting verdict |
+| T10 | Design v2 date-stamped notices and final visual check | PASS a3 — docs/reviews/T10-a3.md (gate G-Design-v2 signed by the human's merge) |
+| T11 | Backend module: Supabase project, first migration with RLS, pgTAP proof, client helpers | built — awaiting verdict |
 
 ## Next action
 
-T10 attempt 3, the last, is built on `task/T10` and awaits the reviewer's verdict. On PASS the human's merge signs gate `G-Design-v2` and closes phase P04. On FAIL the human decides. There is no further task in the outline.
+T11 is built on `task/T11` and awaits the heavyweight review (risk 3). Its PASS stops at the human gate because it changes the schema (PR-17): the human reviews the migration and merges, and with `DEVOS_SUPABASE=true` the production deploy backs up and applies it before the app (PR-18). Next is T12: the notices and opening hours move into the database by a migration.

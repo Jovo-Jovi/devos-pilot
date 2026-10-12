@@ -1,0 +1,5 @@
+-- Synthetic seed for the local and CI database only (OD-10, docs/DATA_MODEL.md §8).
+-- `supabase db push` never runs it, so nothing here reaches the hosted project.
+-- Rules: reserved email domains only (example.com, example.org, example.net, .test), invented
+-- names, never a real person's data (guard:data). There are no rows yet: the content arrives by
+-- the T12 migration, and the synthetic staff test accounts arrive at T14.

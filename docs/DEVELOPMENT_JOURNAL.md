@@ -108,3 +108,9 @@ is closed. `pnpm check` exits 0. Awaiting verdict.
 English notice titles on the notices page are `h2`, so they were taking the display word spacing
 from `global.css` line 42. One rule sets `word-spacing: normal` on those titles only. The notices
 e2e test asserts the computed value is `0px` in both locales. `pnpm check` exits 0. Awaiting verdict.
+
+---
+
+## 2026-10-12 — T11 backend module foundation (builder, Grok 4.7)
+
+The local Supabase project is on, with public sign-up off and TOTP on. Postgres major version is 17. One migration creates `private.is_staff_aal2()`, `library_notices` and `opening_slots`, with explicit privileges, row level security and the eight policies. pgTAP (`Files=1, Tests=46`) proves each principal. The public pages are unchanged and still read `content/*.json`. Awaiting the heavyweight review.
