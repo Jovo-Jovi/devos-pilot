@@ -127,8 +127,18 @@ async function collect() {
       todo: [{ who: "you", text: `GitHub holds \`ci\` on bot-opened PRs until someone approves it. Open the [run](${ci.html_url}) and press **Approve and run** (or the yellow banner on the PR's Checks tab). The doctor runs again when ci finishes.` }] });
   } else if (ci.conclusion === "success") {
     add({ key: "ci", label: "ci checks", level: "ok", state: `passed`, link: ci.html_url, todo: [] });
+  } else if (ci.conclusion === "skipped") {
+    add({ key: "ci", label: "ci checks", level: "info", state: "skipped on runner PRs (PR-23)", link: ci.html_url,
+      todo: [{ who: "auto", text: "The cycle ran these checks on this branch; their result is in the verdict (PR-08)." }] });
   } else {
     await diagnoseCi(f, ci, add);
+    // PR-23: on the runner's own PRs the cycle's checks are authoritative; a separate ci failure is shown,
+    // with its diagnosis, but does not block the merge.
+    const item = f.items.find((i) => i.key === "ci");
+    if (item && /^(task|intake)\//.test(f.branch) && item.level === "block") {
+      item.level = "warn";
+      item.todo.unshift({ who: "auto", text: "Not a blocker: the cycle's own run of these checks passed on this code (devos/verdict, PR-08). This extra ci run was started by hand; its diagnosis follows for your information." });
+    }
   }
 
   // 3. Vercel preview of this branch (task PRs only).
