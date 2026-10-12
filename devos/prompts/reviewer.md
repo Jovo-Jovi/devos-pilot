@@ -68,7 +68,10 @@ Next task: {{NEXT_TASK_OR_NONE}} · Human gate after a PASS: {{HUMAN_GATE}}
      self-contained fence in the format of `docs/fences/T01.md`, from `docs/PHASES.md` "Phase
      outlines", the documents, and what you just verified (real file names, real script names).
      Rehearse what you can now: confirm every path, script and anchor it names exists or is
-     created by its own steps; every check must be true of what the fence itself lands.
+     created by its own steps; every check must be true of what the fence itself lands. Keep the
+     rehearsal proportionate: apply the next task's code in a scratch copy only when a check cannot
+     be confirmed any other way, and never at the expense of finishing. **Write this attempt's review
+     file and fence first, then give your structured answer; leave optional extra checks for last.**
    - **PASS and no next task** → write nothing else.
    - **FAIL and attempt < {{MAX_ATTEMPTS}}** → reissue the **whole** fence: overwrite
      `docs/fences/{{TASK}}.md`, increment `Fence version`, fix the defect if it was the fence's own

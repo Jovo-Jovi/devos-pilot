@@ -39,6 +39,11 @@ on:
         type: boolean
         required: false
         default: false
+      reuse_review:
+        description: "With review_only: keep the review file this attempt already wrote and only re-decide (PR-21)"
+        type: boolean
+        required: false
+        default: false
       go:
         description: "Start now even if DEVOS_HEAVY=hold would hold this heavy task (PR-20)"
         type: boolean
@@ -354,8 +359,9 @@ jobs:
 
       - name: Reviewer — Claude Code
         id: reviewer
-        if: steps.bs.outputs.state == 'ok'
-        timeout-minutes: 45
+        # reuse_review (PR-21): a complete review file from this attempt is kept; verdict.mjs reads it.
+        if: steps.bs.outputs.state == 'ok' && !(inputs.reuse_review && hashFiles(format('docs/reviews/{0}-a{1}.md', env.TASK, env.ATTEMPT)) != '')
+        timeout-minutes: 75
         env:
           OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
