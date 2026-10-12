@@ -130,14 +130,15 @@ function parseOpeningSlot(
   raw: unknown,
   index: number,
   seen: Set<string>,
+  source: string,
 ): OpeningSlot {
   const where = `[${index}]`;
   if (!isRecord(raw)) {
-    fail(SLOTS_FILE, `${where} expected an object`);
+    fail(source, `${where} expected an object`);
   }
-  assertAllowed(SLOTS_FILE, where, raw, SLOT_FIELDS);
+  assertAllowed(source, where, raw, SLOT_FIELDS);
   if (!Object.hasOwn(raw, "dayOfWeek")) {
-    fail(SLOTS_FILE, `${at(where, "dayOfWeek")} missing`);
+    fail(source, `${at(where, "dayOfWeek")} missing`);
   }
   const dayOfWeek = raw.dayOfWeek;
   if (
@@ -146,78 +147,87 @@ function parseOpeningSlot(
     dayOfWeek < 0 ||
     dayOfWeek > 6
   ) {
-    fail(SLOTS_FILE, `${at(where, "dayOfWeek")} not an integer 0-6`);
+    fail(source, `${at(where, "dayOfWeek")} not an integer 0-6`);
   }
-  const opensAt = requiredString(SLOTS_FILE, where, raw, "opensAt");
-  const closesAt = requiredString(SLOTS_FILE, where, raw, "closesAt");
+  const opensAt = requiredString(source, where, raw, "opensAt");
+  const closesAt = requiredString(source, where, raw, "closesAt");
   if (!TIME.test(opensAt)) {
-    fail(SLOTS_FILE, `${at(where, "opensAt")} not HH:MM`);
+    fail(source, `${at(where, "opensAt")} not HH:MM`);
   }
   if (!TIME.test(closesAt)) {
-    fail(SLOTS_FILE, `${at(where, "closesAt")} not HH:MM`);
+    fail(source, `${at(where, "closesAt")} not HH:MM`);
   }
   if (opensAt >= closesAt) {
-    fail(SLOTS_FILE, `${at(where, "opensAt")} >= closesAt`);
+    fail(source, `${at(where, "opensAt")} >= closesAt`);
   }
   const hasNoteAr = Object.hasOwn(raw, "noteAr");
   const hasNoteEn = Object.hasOwn(raw, "noteEn");
   if (hasNoteAr !== hasNoteEn) {
-    fail(SLOTS_FILE, `${where} exactly one of noteAr/noteEn`);
+    fail(source, `${where} exactly one of noteAr/noteEn`);
   }
   const slot: OpeningSlot = {
-    id: requiredId(SLOTS_FILE, where, raw, seen),
+    id: requiredId(source, where, raw, seen),
     dayOfWeek,
     opensAt,
     closesAt,
   };
   if (hasNoteAr && hasNoteEn) {
-    slot.noteAr = requiredString(SLOTS_FILE, where, raw, "noteAr");
-    slot.noteEn = requiredString(SLOTS_FILE, where, raw, "noteEn");
+    slot.noteAr = requiredString(source, where, raw, "noteAr");
+    slot.noteEn = requiredString(source, where, raw, "noteEn");
   }
   return slot;
 }
 
-export function parseOpeningSlots(raw: unknown): OpeningSlot[] {
+/** `source` names where the records came from in error messages: the JSON file, or a table (T13). */
+export function parseOpeningSlots(
+  raw: unknown,
+  source = SLOTS_FILE,
+): OpeningSlot[] {
   if (!Array.isArray(raw)) {
-    fail(SLOTS_FILE, "expected an array");
+    fail(source, "expected an array");
   }
   const seen = new Set<string>();
-  return raw.map((entry, index) => parseOpeningSlot(entry, index, seen));
+  return raw.map((entry, index) => parseOpeningSlot(entry, index, seen, source));
 }
 
 function parseLibraryNotice(
   raw: unknown,
   index: number,
   seen: Set<string>,
+  source: string,
 ): LibraryNotice {
   const where = `[${index}]`;
   if (!isRecord(raw)) {
-    fail(NOTICES_FILE, `${where} expected an object`);
+    fail(source, `${where} expected an object`);
   }
-  assertAllowed(NOTICES_FILE, where, raw, NOTICE_FIELDS);
-  const status = requiredString(NOTICES_FILE, where, raw, "status");
+  assertAllowed(source, where, raw, NOTICE_FIELDS);
+  const status = requiredString(source, where, raw, "status");
   if (status !== "published" && status !== "draft") {
-    fail(NOTICES_FILE, `${at(where, "status")} not published or draft`);
+    fail(source, `${at(where, "status")} not published or draft`);
   }
-  const publishedOn = requiredString(NOTICES_FILE, where, raw, "publishedOn");
+  const publishedOn = requiredString(source, where, raw, "publishedOn");
   if (!PUBLISHED_ON.test(publishedOn)) {
-    fail(NOTICES_FILE, `${at(where, "publishedOn")} not YYYY-MM-DD`);
+    fail(source, `${at(where, "publishedOn")} not YYYY-MM-DD`);
   }
   return {
-    id: requiredId(NOTICES_FILE, where, raw, seen),
+    id: requiredId(source, where, raw, seen),
     status,
     publishedOn,
-    titleAr: requiredString(NOTICES_FILE, where, raw, "titleAr"),
-    titleEn: requiredString(NOTICES_FILE, where, raw, "titleEn"),
-    bodyAr: requiredString(NOTICES_FILE, where, raw, "bodyAr"),
-    bodyEn: requiredString(NOTICES_FILE, where, raw, "bodyEn"),
+    titleAr: requiredString(source, where, raw, "titleAr"),
+    titleEn: requiredString(source, where, raw, "titleEn"),
+    bodyAr: requiredString(source, where, raw, "bodyAr"),
+    bodyEn: requiredString(source, where, raw, "bodyEn"),
   };
 }
 
-export function parseLibraryNotices(raw: unknown): LibraryNotice[] {
+/** `source` names where the records came from in error messages: the JSON file, or a table (T13). */
+export function parseLibraryNotices(
+  raw: unknown,
+  source = NOTICES_FILE,
+): LibraryNotice[] {
   if (!Array.isArray(raw)) {
-    fail(NOTICES_FILE, "expected an array");
+    fail(source, "expected an array");
   }
   const seen = new Set<string>();
-  return raw.map((entry, index) => parseLibraryNotice(entry, index, seen));
+  return raw.map((entry, index) => parseLibraryNotice(entry, index, seen, source));
 }

@@ -120,3 +120,9 @@ The local Supabase project is on, with public sign-up off and TOTP on. Postgres 
 ## 2026-10-12 — T12 content moved into the database (builder, Grok 4.7)
 
 The signed rows of `content/library-notices.json` and `content/opening-slots.json` now reach every database through `20261012090153_move_library_content.sql`: 4 notices (3 published, 1 draft) and 7 opening slots, `on conflict (id) do nothing`. pgTAP (`Files=2, Tests=63`) proves each moved row and that an anonymous visitor reads the three published notices, newest first, and never the draft. The pages still read the JSON files. Awaiting the heavyweight review.
+
+---
+
+## 2026-10-12 — T13 public pages read the database (builder, Grok 4.7)
+
+The home and notices pages read published `LibraryNotice` rows and every `OpeningSlot` from the database, on the server, through cache entries tagged `library-notices` and `opening-slots`. `LibraryProfile` stays in `content/library-profile.json`. The pages stay prerendered, set no cookie, and look the same as the JSON build. `pnpm check` exits 0. Awaiting verdict.

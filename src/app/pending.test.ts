@@ -2,16 +2,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { getMessages } from "@/i18n/messages";
 
-vi.mock("@/content/library-content", async () => {
-  const actual = await vi.importActual<typeof import("@/content/library-content")>(
-    "@/content/library-content",
-  );
-  return {
-    libraryProfile: actual.libraryProfile,
-    openingSlots: [],
-    libraryNotices: [],
-  };
-});
+vi.mock("@/content/readers", () => ({
+  readOpeningSlots: async () => [],
+  readPublishedLibraryNotices: async () => [],
+}));
 
 import LocalePage from "./[locale]/page";
 import NoticesPage from "./[locale]/notices/page";

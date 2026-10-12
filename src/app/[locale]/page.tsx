@@ -7,12 +7,12 @@ import { Timetable } from "@/components/Timetable";
 import { PendingState } from "@/components/PendingState";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import {
-  libraryNotices,
-  libraryProfile,
-  openingSlots,
-} from "@/content/library-content";
+import { libraryProfile } from "@/content/library-content";
 import { selectLatestNotices } from "@/content/notices";
+import {
+  readOpeningSlots,
+  readPublishedLibraryNotices,
+} from "@/content/readers";
 import { isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 
@@ -26,6 +26,10 @@ export default async function LocalePage({
   const messages = getMessages(locale);
   const libraryName =
     locale === "ar" ? libraryProfile.nameAr : libraryProfile.nameEn;
+  const [openingSlots, libraryNotices] = await Promise.all([
+    readOpeningSlots(),
+    readPublishedLibraryNotices(),
+  ]);
   const latestNotices = selectLatestNotices(libraryNotices, 3);
   return (
     <>
