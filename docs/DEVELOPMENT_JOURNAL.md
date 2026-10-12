@@ -126,3 +126,9 @@ The signed rows of `content/library-notices.json` and `content/opening-slots.jso
 ## 2026-10-12 — T13 public pages read the database (builder, Grok 4.7)
 
 The home and notices pages read published `LibraryNotice` rows and every `OpeningSlot` from the database, on the server, through cache entries tagged `library-notices` and `opening-slots`. `LibraryProfile` stays in `content/library-profile.json`. The pages stay prerendered, set no cookie, and look the same as the JSON build. `pnpm check` exits 0. Awaiting verdict.
+
+---
+
+## 2026-10-12 — T14 staff sign-in, attempt 2 (builder, Grok 4.7)
+
+Staff sign in with a password, enrol or answer a TOTP factor, and reach the staff home at AAL2. The session proxy is limited to the staff routes. Public pages stay static and cookieless, with `form-action 'none'`; staff routes send `form-action 'self'`. Local password sign-in is on and sign-up stays off. `pnpm check` exits 0. Awaiting the heavyweight review.

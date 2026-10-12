@@ -16,6 +16,24 @@ export const securityHeaders = [
   },
 ];
 
+const baselineContentSecurityPolicy = securityHeaders.find(
+  (entry) => entry.key === "Content-Security-Policy",
+)?.value;
+
+if (!baselineContentSecurityPolicy?.includes("form-action 'none'")) {
+  throw new Error("baseline Content-Security-Policy is missing form-action 'none'");
+}
+
+/** Staff routes: the baseline CSP with form-action 'self' and every other directive unchanged. */
+export const staffContentSecurityPolicy = baselineContentSecurityPolicy.replace(
+  "form-action 'none'",
+  "form-action 'self'",
+);
+
+export const staffSecurityHeaders = [
+  { key: "Content-Security-Policy", value: staffContentSecurityPolicy },
+];
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
@@ -36,6 +54,10 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        source: "/:locale/staff/:path*",
+        headers: staffSecurityHeaders,
       },
     ];
   },

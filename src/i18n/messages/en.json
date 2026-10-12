@@ -38,6 +38,28 @@
     "address": "Address",
     "phone": "Phone"
   },
+  "staff": {
+    "homeTitle": "Staff",
+    "signInTitle": "Sign in",
+    "mfaTitle": "Authenticator",
+    "emailLabel": "Email",
+    "emailHint": "The address on your invitation.",
+    "passwordLabel": "Password",
+    "passwordHint": "Your password for this account.",
+    "codeLabel": "Authenticator code",
+    "codeHint": "The six-digit code from your authenticator.",
+    "signInSubmit": "Sign in",
+    "verifySubmit": "Confirm code",
+    "signOutSubmit": "Sign out",
+    "errorGeneric": "Sign-in could not be confirmed. Try again.",
+    "errorCode": "The code could not be confirmed. Try again.",
+    "errorRefused": "This account cannot open the staff pages.",
+    "secretLabel": "Secret key",
+    "secretHint": "Enter this key in your authenticator if you cannot scan the image.",
+    "qrLabel": "Authenticator QR code",
+    "signedInAs": "Signed in as",
+    "pending": "Checking the session."
+  },
   "days": {
     "0": "Sunday",
     "1": "Monday",
