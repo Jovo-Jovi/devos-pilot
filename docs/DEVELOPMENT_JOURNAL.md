@@ -132,3 +132,9 @@ The home and notices pages read published `LibraryNotice` rows and every `Openin
 ## 2026-10-12 — T14 staff sign-in, attempt 2 (builder, Grok 4.7)
 
 Staff sign in with a password, enrol or answer a TOTP factor, and reach the staff home at AAL2. The session proxy is limited to the staff routes. Public pages stay static and cookieless, with `form-action 'none'`; staff routes send `form-action 'self'`. Local password sign-in is on and sign-up stays off. `pnpm check` exits 0. Awaiting the heavyweight review.
+
+---
+
+## 2026-10-12 — T15 staff invitation, attempt 1 (builder, Grok 4.7)
+
+An invited staff member opens one confirm link, sets a password, enrols TOTP, and reaches the staff home. The confirm route is the only route handler. Public pages stay static and cookieless. The local invitation template points at `/ar/staff/auth/confirm` with `token_hash` and `type=invite`. `pnpm check` exits 0. Awaiting the heavyweight review.

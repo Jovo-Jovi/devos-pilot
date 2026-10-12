@@ -58,7 +58,16 @@
     "secretHint": "Enter this key in your authenticator if you cannot scan the image.",
     "qrLabel": "Authenticator QR code",
     "signedInAs": "Signed in as",
-    "pending": "Checking the session."
+    "pending": "Checking the session.",
+    "passwordTitle": "Set a password",
+    "newPasswordLabel": "New password",
+    "newPasswordHint": "Choose a password for this account.",
+    "confirmPasswordLabel": "Confirm password",
+    "confirmPasswordHint": "Enter the password again.",
+    "passwordSubmit": "Save password",
+    "errorMismatch": "The passwords do not match. Try again.",
+    "errorPassword": "The password could not be saved. Try again.",
+    "errorLink": "This invitation cannot be used. Ask the library for a new invitation."
   },
   "days": {
     "0": "Sunday",
