@@ -19,7 +19,7 @@ The runner reads the table below, and `guard:phases` checks it.
 | T08 | P04 | J5 | Design v2 timetable (replaces OpeningHours) | 2 | — | [x] | PASS a1 — docs/reviews/T08-a1.md |
 | T09 | P04 | J5 | Design v2 hero: open-now status chip, today line, today highlight | 2 | — | [x] | PASS a1 — docs/reviews/T09-a1.md |
 | T10 | P04 | J5 | Design v2 date-stamped notices and final visual check | 2 | G-Design-v2 | [x] | PASS a3 — docs/reviews/T10-a3.md |
-| T11 | P05 | J4 | Backend module: Supabase project, first migration with RLS, pgTAP proof, client helpers | 3 | — | [ ] | — |
+| T11 | P05 | J4 | Backend module: Supabase project, first migration with RLS, pgTAP proof, client helpers | 3 | — | [x] | PASS a1 — docs/reviews/T11-a1.md |
 | T12 | P05 | J4 | Move notices and opening hours from the JSON files into the database | 3 | — | [ ] | — |
 | T13 | P05 | J5 | Public pages read published rows from the database, cached by tag | 2 | — | [ ] | — |
 | T14 | P05 | J6 | Staff sign-in: password, TOTP enrolment and challenge, session proxy, staff headers | 3 | — | [ ] | — |
