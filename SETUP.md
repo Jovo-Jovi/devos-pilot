@@ -263,6 +263,21 @@ commit status **`devos/gate`** is green. Comment `/devos doctor` to check again 
 
 The label `devos:needs-you` marks PRs where only you can act; filter the PR list by it.
 
+### 11.8 Heavy runs and your plans (PR-20)
+Some runs use much more of your Claude and Cursor plans than others: planning a change request, and
+any task reviewed by Opus or at extra-high effort (risk 3 and gate tasks), or built at extra-high.
+- **Subscribe** to the issue **"Dev OS: run notices"** (the runner opens it the first time). It
+  comments there before each heavy run and when a phase starts, with the heavy tasks still ahead.
+- To decide yourself when heavy work starts, set the repository variable `DEVOS_HEAVY` to `hold`.
+  A heavy task then waits until you comment `/devos go` in that issue. Unset (or `notify`), it only
+  announces. Retries and resumes of a task you already let start never wait.
+- A usage limit never loses work: a task parks and resumes by itself (PR-12); a planning run keeps
+  its partial plan and resumes by itself too. `/devos intake resume` continues one by hand.
+- Mark small change requests "Small change" in the form: they are planned at high effort instead of
+  extra-high, which costs noticeably less.
+- Every verdict and plan comment ends with what the run cost (minutes, turns, tokens), so you can
+  see which kinds of task are expensive.
+
 ## 12. Backend module: Supabase (PR-17 to PR-19)
 
 The method side is already in the repository. The product side arrives through change requests,

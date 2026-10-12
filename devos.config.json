@@ -35,6 +35,7 @@
     },
     "gate_effort": "xhigh",
     "intake_effort": "xhigh",
+    "intake_effort_small": "high",
     "fallback_model": "claude-sonnet-5-5",
     "model_note": "Official Claude ids (claude-opus-5-5, claude-sonnet-5-5). Opus 5.5 and Sonnet 5.5 default to medium effort in Claude Code, so the runner always passes --effort. --fallback-model only applies when the primary is overloaded or unavailable, never on usage limits."
   },
@@ -157,5 +158,8 @@
       },
       "env_note": "Names the app reads, mapped from `supabase status -o env`. Local keys are the CLI's throwaway demo keys; production values live only in Vercel and GitHub secrets."
     }
+  },
+  "heavy": {
+    "$comment": "PR-20. A run is heavy when its review uses reviewer.gate_model or xhigh effort, or its fence builds at xhigh. Repository variable DEVOS_HEAVY: notify (default) announces it in the 'Dev OS: run notices' issue; hold also waits for '/devos go' before a heavy task's first attempt."
   }
 }

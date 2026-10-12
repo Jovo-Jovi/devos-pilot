@@ -65,3 +65,14 @@ export function notBefore(text, defaultMinutes = 60, now = new Date()) {
   const t = reset ? reset.getTime() + 3 * 60000 : now.getTime() + defaultMinutes * 60000;
   return new Date(t).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
+
+/** One line on what an agent run cost (PR-20): minutes, turns, tokens read and written. */
+export function agentStats(rel) {
+  const r = parseJsonLoose(readText(rel));
+  if (!r || typeof r !== "object" || r.duration_ms == null) return "";
+  const u = r.usage ?? {};
+  const k = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round((n || 0) / 1000)}k`);
+  const read = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+  return `${Math.round(r.duration_ms / 60000)} min, ${r.num_turns ?? "?"} turns, ${k(read)} tokens read (${k(u.cache_read_input_tokens)} from cache), ${k(u.output_tokens)} written`;
+}
+

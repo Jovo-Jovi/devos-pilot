@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { P, config, parsePhases, isHumanGate, taskAfter, updatePhasesRow, changedPaths, emit, fail } from "./lib.mjs";
-import { looksLikeLimit, readText, resumeMarker, notBefore } from "./limits.mjs";
+import { looksLikeLimit, readText, resumeMarker, notBefore, agentStats } from "./limits.mjs";
 
 const arg = (n, d = "") => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
 const task = arg("task");
@@ -45,6 +45,7 @@ function finish(verdict, action, extra = {}) {
     notes.length ? "**Runner notes**\n" + notes.map((n) => `- ${n}`).join("\n") : "",
     "",
     `Review: \`${reviewFile}\` · Fence written: \`${extra.fence ?? "none"}\``,
+    agentStats(reviewerJson) ? `\n<sub>Review run: ${agentStats(reviewerJson)}.</sub>` : "",
     extra.human ? `\n**Human attention:** ${extra.human}` : "",
     action === "quota_wait" ? `\n${resumeMarker(task, attempt, true, extra.notBefore)}` : "",
   ].join("\n");

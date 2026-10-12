@@ -39,6 +39,11 @@ on:
         type: boolean
         required: false
         default: false
+      go:
+        description: "Start now even if DEVOS_HEAVY=hold would hold this heavy task (PR-20)"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: devos-cycle
@@ -67,6 +72,7 @@ jobs:
       reviewer_max_turns: ${{ steps.t.outputs.reviewer_max_turns }}
       reviewer_effort: ${{ steps.t.outputs.reviewer_effort }}
       reviewer_fallback: ${{ steps.t.outputs.reviewer_fallback }}
+      held: ${{ steps.heavy.outputs.held }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -78,10 +84,23 @@ jobs:
         run: node scripts/devos/next-task.mjs --task "${{ inputs.task }}" --attempt "${{ inputs.attempt }}" --revision "${{ inputs.revision }}"
       - if: steps.t.outputs.done == 'true'
         run: echo "::notice title=Dev OS::Every task in docs/PHASES.md is PASS. Nothing to run."
+      - name: Heavy-run notice, or hold (PR-20)
+        id: heavy
+        if: steps.t.outputs.done == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEVOS_HEAVY: ${{ vars.DEVOS_HEAVY }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node scripts/devos/heavy.mjs --task "${{ steps.t.outputs.task }}" --attempt "${{ steps.t.outputs.attempt }}" \
+            --review-only "${{ inputs.review_only }}" --revision "${{ inputs.revision }}" --go "${{ inputs.go }}"
+      - if: steps.heavy.outputs.held == 'true'
+        run: |
+          echo "::notice title=Dev OS::${{ steps.t.outputs.task }} is heavy and DEVOS_HEAVY=hold. Comment /devos go in the run notices issue to start it."
 
   cycle:
     needs: resolve
-    if: needs.resolve.outputs.done == 'false'
+    if: needs.resolve.outputs.done == 'false' && needs.resolve.outputs.held != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     outputs:
@@ -520,5 +539,5 @@ jobs:
           esac
           gh pr edit "$PR" --repo "$REPO" --remove-label "devos:quota-wait"
           gh workflow run devos-cycle.yml --repo "$REPO" --ref main \
-            -f task="$TASK" -f attempt="$ATTEMPT" -f review_only="$REVIEW_ONLY"
+            -f task="$TASK" -f attempt="$ATTEMPT" -f review_only="$REVIEW_ONLY" -f go=true
           echo "::notice title=Dev OS::Resumed $TASK attempt $ATTEMPT (review_only=$REVIEW_ONLY)."

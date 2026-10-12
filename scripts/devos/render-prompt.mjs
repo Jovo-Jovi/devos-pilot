@@ -3,7 +3,7 @@
 // Usage: node scripts/devos/render-prompt.mjs builder|reviewer|revise Tnn attempt [--out file]
 //        node scripts/devos/render-prompt.mjs intake - - [--out file]          (OD-08 §3)
 // Environment it reads when set: DEVOS_BUILDER_MODEL, DEVOS_BUILDER_EFFORT, DEVOS_BUILDER_FAST,
-// DEVOS_PREVIEW_URL, DEVOS_ISSUE.
+// DEVOS_PREVIEW_URL, DEVOS_ISSUE, DEVOS_INTAKE_RESUME.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { P, parsePhases, isHumanGate, taskAfter, config, fail } from "./lib.mjs";
 
@@ -17,6 +17,9 @@ function commonVars(cfg, rows) {
     TODAY: new Date().toISOString().slice(0, 10),
     NEXT_ID: `T${String((ids.length ? Math.max(...ids) : 0) + 1).padStart(2, "0")}`,
     ISSUE: env.DEVOS_ISSUE ?? "",
+    RESUME_LINE: env.DEVOS_INTAKE_RESUME === "true"
+      ? "\n**This run continues an earlier one that stopped (usage limit or no decision).** Its partial files are already in the tree on this branch (`git diff --stat origin/main...HEAD`). Read them, verify them against the repository, and complete them. Do not start over, renumber, or duplicate what is there: task ids already added on this branch stand, and the next free id below applies only to tasks you still add.\n"
+      : "",
     BUILDER_MODEL: env.DEVOS_BUILDER_MODEL || cfg.builder.model,
     BUILDER_EFFORT: env.DEVOS_BUILDER_EFFORT || cfg.builder.default_effort || "high",
     BUILDER_FAST: env.DEVOS_BUILDER_FAST || "no",
