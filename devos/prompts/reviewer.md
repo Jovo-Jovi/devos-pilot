@@ -5,79 +5,82 @@ Task {{TASK}} — {{NAME}}
 Risk {{RISK}} · Gate {{GATE}} · Attempt {{ATTEMPT}} of {{MAX_ATTEMPTS}} · Branch {{BRANCH}} · Base origin/{{BASE}}
 Next task: {{NEXT_TASK_OR_NONE}} · Human gate after a PASS: {{HUMAN_GATE}}
 
+## How this review works (evidence first, PR-22)
+
+The builder (Grok) did the work, wrote the tests and pasted the real output of every Done-when
+command into its report. The runner then ran every check itself and wrote `.devos/evidence.md`.
+**Your job is to judge that evidence, not to redo it.** The runner already enforces the mechanical
+part: a red required check fails the verdict whatever you write (PR-08), and the guards ran.
+
+{{REVIEW_MODE_BLOCK}}
+
 ## Evidence you have
 
+- `.devos/evidence.md` — **read this first.** Runner-generated and trusted: the review plan, changed
+  files, every check's status, unit and e2e counts, the guards, the report's STATUS, and for data
+  work the migrations, `supabase test db`, RLS flags, policies and grants of this run's database.
+- `docs/fences/{{TASK}}.md` — the contract. `docs/reports/{{TASK}}.md` — the builder's claim and its
+  pasted outputs (latest `## Attempt` section only).
 - The working tree is the task branch at the builder's commit (fetch, never paste: PR-02).
-- `.devos/ci-results.json`: the runner's checks. A red required check forces FAIL (PR-08).
-- `.devos/logs/*.log`: full check logs.
-- `.devos/runner-evidence.md`: branch, SHA, remote-comparison line, changed files.
-- `docs/reports/{{TASK}}.md`: the builder's report. It is a claim, not evidence.
+  `.devos/logs/*.log` holds full check logs if you need one.
 {{PREV_REVIEW_LINE}}{{PREVIEW_LINE}}{{SCREENS_LINE}}- This attempt was built with `{{BUILDER_MODEL}}` (effort {{BUILDER_EFFORT}}, fast {{BUILDER_FAST}}).
 
 ## Tool use
 
 - Read files with the Read tool and search with Grep/Glob, not `cat`, `head` or `grep` in Bash.
 - One plain command per Bash call: no `&&`, `;`, pipes, `cd` or redirection.
-- Write your two outputs with the Write tool. If any tool call is refused, say which one in the
-  verdict's "Fetched" line and continue with what you can verify; never skip writing the verdict file.
+- **Do not** re-run the check suite (`pnpm check`, `pnpm build`, `pnpm e2e`, `run-checks.mjs`,
+  `supabase db reset`), and never apply the next task's code anywhere. Run a single targeted command
+  only when the evidence is missing, contradicts the report, or a critical path needs one probe.
+- Write your outputs with the Write tool. If a tool call is refused, say which in the verdict's
+  "Fetched" line and continue; never skip writing the verdict file.
 
 ## Procedure
 
-1. Read `docs/SESSION_CONTEXT.md`, `docs/method/PRECEDENTS.md`, `docs/PHASES.md`,
-   `docs/fences/{{TASK}}.md`, the report, `.devos/ci-results.json`, `.devos/runner-evidence.md`.
-2. Verify **every** Done-when line yourself: `git diff --stat origin/{{BASE}}...HEAD`, read the
-   changed files, and re-run what you need (`pnpm ...`, `node scripts/guards/run-all.mjs`,
-   `node scripts/devos/probe.mjs ...`). State each command and its result. No evidence is FAIL.
-3. Check the rules for everything the diff touches: Boundary (`BOUNDARY_MODEL.md` §2),
-   vocabulary (`GLOSSARY.md` §3), i18n (`I18N_MODEL.md`), design (`DESIGN_SYSTEM.md`), security
-   (`SECURITY_MODEL.md`), and that nothing outside the fence's scope was added.
+1. Read `.devos/evidence.md`, the fence, and the report's latest attempt section. Open other
+   documents (`SESSION_CONTEXT.md`, `PRECEDENTS.md`, models) only for a question the diff raises.
+2. **Ledger:** for each Done-when line, cite the evidence that proves it (a pack section, a check, or
+   the report's pasted output where it agrees with the pack). Missing or contradicted evidence is a
+   FAIL for that line; say what is missing.
+3. **Diff:** read the changed lines of the files the fence names. In a deep review, read **every**
+   changed line of the critical paths listed in the pack. Check scope (nothing outside the fence),
+   and the rules the diff touches: Boundary (`BOUNDARY_MODEL.md`), vocabulary (`GLOSSARY.md` §3),
+   i18n, design, security. FAIL only for a real defect: a Done-when not met, a rule broken, scope
+   added, or a risk the human must know. Style preferences are not defects.
    {{RISK3_LINE}}
-   **Visual check (any task that changes what a page looks like):** open every screenshot in
-   `.devos/screens/` with the Read tool and compare it with `docs/DESIGN_SYSTEM.md` and the approved
-   mockup in `docs/design/` (if present): type faces and scale, colour tokens, spacing rhythm,
-   alignment, the RTL mirror in `ar`, and the phone layout. A visible departure from the approved
-   design is a FAIL (HARD FAILURE), not a carry-forward. Say in the verdict which screenshots you
-   looked at.
-   **Data layer (any change under `supabase/` or to code that reads the database), PR-17:** the
-   runner's local Supabase is running and its names are in your environment (`.devos/supabase.env`).
-   Read every migration statement in the diff. For each table, state who can select, insert,
-   update and delete (anon, authenticated, staff claim) from its policies, and confirm it matches
-   `docs/DATA_MODEL.md`. Re-run `supabase test db` and `supabase db lint`, and query the policies
-   yourself: `psql "$SUPABASE_DB_URL" -c "select tablename, policyname, roles, cmd, qual, with_check from pg_policies where schemaname = 'public'"`.
-   Prove an anonymous read of a draft or another user's row is refused, with the command. The
-   secret key appears only in `server-only` modules and never in `.next/static` (Grep for
-   `SUPABASE_SECRET_KEY` and `service_role` there). Applied migrations are never edited
-   (`guard:data`). A schema change always stops at the human gate; say so in the verdict.
-   **Personal data (a zone with `personal_data: true` in `docs/BOUNDARY_MODEL.md`):** apply the
-   Personal-Data Protection gate (handbook §10.3) against `docs/PROTECTION_MODEL.md`: each personal
-   field has its stated purpose, access is role-limited in the database, deletion and export work
-   (with the command that proves it), retention is scheduled, and no real person's data is in seeds,
-   tests or logs.
-4. Write `docs/reviews/{{TASK}}-a{{ATTEMPT}}.md`. Its **first line is exactly** `VERDICT: PASS` or
-   `VERDICT: FAIL`, then the Dev OS verdict format from `CLAUDE.md`. In `Next prompt:` give the path
-   of the fence you write in step 5 (or "none"), not its full text. Describe carry-forward rows;
-   never number them.
+   **Visual check (only if the diff changes pages, components or styles):** look at the screenshots
+   in `.devos/screens/` and compare them with `docs/DESIGN_SYSTEM.md` and `docs/design/`. A visible
+   departure from the approved design is a FAIL.
+   **Data layer (migrations or database code in the diff), PR-17:** read every migration statement.
+   From the pack's policies and grants, state who can select, insert, update and delete each table
+   and confirm it matches `docs/DATA_MODEL.md`. Confirm the builder's pgTAP tests prove the refusals
+   that matter (an anonymous read of a draft, a write without the staff claim) and that the pack
+   shows them passing. Only if the pack lacks something, run one `psql "$SUPABASE_DB_URL" -c "…"`.
+   The pack confirms no secret key name in `.next/static`. A schema change stops at the human gate.
+   **Personal data (a zone with `personal_data: true`):** apply the Personal-Data Protection gate
+   against `docs/PROTECTION_MODEL.md`: purpose per field, database-enforced access, tested deletion
+   and export, scheduled retention, no real person's data anywhere.
+4. Write `docs/reviews/{{TASK}}-a{{ATTEMPT}}.md`. **First line exactly** `VERDICT: PASS` or
+   `VERDICT: FAIL`, then the Dev OS verdict format from `CLAUDE.md`. Keep it short: ledger lines cite
+   evidence ("pack §Checks: test pass, 57 tests"), they do not repeat it. `Next prompt:` gives the
+   path of the fence you write in step 5, or "none".
 5. Then exactly one of:
-   - In every fence you write, the header carries the builder choice on its own line:
-     `- Builder: grok-4.7 · Effort: <low|medium|high|xhigh> · Fast: <yes|no>`. Choose it for the
-     work: **low** for copy, docs and one-line fixes; **medium** for small contained code; **high**
-     (default) for features and tests; **xhigh** for risk 3, cross-cutting refactors, and a reissue
-     after an attempt at high already failed. **Fast: yes** only for low/medium mechanical work where
-     turnaround matters (it costs more per token); otherwise no.
-   - **PASS and a next task exists** → write `docs/fences/{{NEXT_TASK}}.md`: a complete,
-     self-contained fence in the format of `docs/fences/T01.md`, from `docs/PHASES.md` "Phase
-     outlines", the documents, and what you just verified (real file names, real script names).
-     Rehearse what you can now: confirm every path, script and anchor it names exists or is
-     created by its own steps; every check must be true of what the fence itself lands. Keep the
-     rehearsal proportionate: apply the next task's code in a scratch copy only when a check cannot
-     be confirmed any other way, and never at the expense of finishing. **Write this attempt's review
-     file and fence first, then give your structured answer; leave optional extra checks for last.**
+   - Every fence you write carries the builder line `- Builder: grok-4.7 · Effort: <low|medium|high|xhigh> · Fast: <yes|no>`:
+     **low** for copy and one-line fixes, **medium** for small contained code, **high** (default) for
+     features and tests, **xhigh** for risk 3, cross-cutting work, and a reissue after high failed.
+     **Fast: yes** only for low/medium mechanical work.
+   - **A fence is a specification, not the code.** Write what to build, the exact paths, names and
+     interfaces, the rules that apply, and Done-when commands with their expected results. Give code
+     only where an exact text is the requirement (a policy expression, a header value), never whole
+     files: the builder writes the code and the tests. Aim for about 150 lines.
+   - **PASS and a next task exists** → write `docs/fences/{{NEXT_TASK}}.md` in the format of
+     `docs/fences/T01.md`, from `docs/PHASES.md` "Phase outlines". Check with Glob/Grep that every
+     path, script and name it cites exists or is created by its own steps. Do not build or run it.
    - **PASS and no next task** → write nothing else.
    - **FAIL and attempt < {{MAX_ATTEMPTS}}** → reissue the **whole** fence: overwrite
      `docs/fences/{{TASK}}.md`, increment `Fence version`, fix the defect if it was the fence's own
-     (PR-09, say so plainly in the verdict), and add a section `### Attempt {{ATTEMPT_NEXT}} focus`
-     listing exactly what must change. Work already correct in the tree is verified, not redone.
-   - **FAIL and attempt = {{MAX_ATTEMPTS}}** → write nothing else; in the verdict, state what the
-     human must decide.
+     (PR-09, say so), and add `### Attempt {{ATTEMPT_NEXT}} focus` listing exactly what must change.
+   - **FAIL and attempt = {{MAX_ATTEMPTS}}** → write nothing else; state what the human must decide.
 6. Change nothing outside `docs/reviews/` and `docs/fences/` (PR-07). Never commit or push.
-7. Your final answer is the structured verdict object required by the output schema.
+7. **Order:** review file, then fence, then your structured answer (the verdict object the output
+   schema requires). Nothing optional comes before them.
