@@ -124,6 +124,86 @@ are presentational components and pure time functions with unit tests.
 catalogues; CF-005 (it becomes moot when T07 lands the v2 link colour; its closure is recorded by T10);
 any other carry-forward.
 
+### OD-10 — Staff editor on Supabase: the `operator` zone
+**Status:** DRAFT — signed when the human merges the intake PR
+**Amends:** OD-01 §2 ("No dashboard, no accounts"). OD-01 §3 stays non-waivable outside the zone.
+Supersedes ADR-001 and D-01 for `LibraryNotice` and `OpeningSlot` (ADR-002). Decides the production
+data store that OD-08 left open. OD-04 (private repository) and OD-06 (no Supabase MCP) are unchanged.
+**Requested by:** issue #14
+**1. Profile and zone.** The profile stays **A**. One zone opens, `operator`. Its source is
+`src/app/[locale]/staff/**`, the Supabase client code `src/lib/supabase/**` and the session proxy
+`src/proxy.ts`. Its URLs are `/[locale]/staff/**`, and it holds no personal data (`personal_data: false`).
+The `devos:boundary` line in `docs/BOUNDARY_MODEL.md` says exactly this (PR-19). Inside the zone, these
+are allowed: forms and inputs, the Supabase Auth session cookies, server actions, and one route handler
+(the invitation link, T15). Outside the zone, OD-01 §3 holds in full. Public responses set no cookie,
+and visitors keep giving nothing. Analytics and third-party scripts are allowed nowhere.
+**2. No personal data from the public.** The zone holds none. Staff accounts (email address, password
+hash, TOTP factor) live only in Supabase Auth's `auth` schema. No `public` table has a column about a
+person: there is no author or attribution column. So the Personal-Data Protection gate (handbook §10.3)
+does not apply and no `docs/PROTECTION_MODEL.md` is written. A zone with personal data needs its own OD.
+**3. Accounts by invitation only.** Public sign-up is off, both in `supabase/config.toml` and in the
+hosted project. The human invites staff from the Supabase dashboard and grants the staff claim
+`app_metadata.staff = true` with the statement in `docs/DATA_MODEL.md` §5. Real addresses never enter
+the repository. There is no in-app invitation, account management or password recovery.
+**4. Sign-in (handbook §9).** Staff sign in with email and password, then a TOTP code. A staff member
+enrols the TOTP factor at the first sign-in. Every staff page after sign-in, and every write, needs
+the staff claim and AAL2. The app checks both on the server, and every RLS policy checks them again
+(`private.is_staff_aal2()`).
+**5. Data.** `LibraryNotice` and `OpeningSlot` move to `public.library_notices` and
+`public.opening_slots` in Supabase Postgres, as specified in `docs/DATA_MODEL.md`, which this OD adopts
+at precedence 7. Anonymous visitors read published notices and every opening slot. Staff at AAL2 can
+create, edit, publish and unpublish notices, but cannot delete them. They can add, change and remove
+opening slots. `LibraryProfile` stays in `content/library-profile.json`. The content moves by its own
+migration (T12), and its row counts must equal the JSON: 4 notices (3 published, 1 draft) and 7
+opening slots. From T13 on, the app no longer reads `content/library-notices.json` and
+`content/opening-slots.json`. They stay in the tree as the record of the signed content that moved
+(OD-02 §3).
+**6. Public pages.** The routes and the rendering stay the same: the pages must look exactly as they do
+now, which the visual check verifies. They read published rows on the server, with the publishable
+key and no session, through cache entries tagged `library-notices` and `opening-slots`. A staff write
+invalidates its tag, so the pages update without a redeploy. The browser never calls Supabase, and the
+CSP `connect-src` stays `'self'`. Staff routes alone get `form-action 'self'` (`docs/SECURITY_MODEL.md`
+§2a). Every other header is unchanged.
+**7. Keys.** The app uses only the Supabase URL and the publishable key. There is no browser client and
+no secret-key (service-role) client: nothing in this request needs an admin call. `SUPABASE_SECRET_KEY`
+stays out of Vercel. Tests may use the local stack's throwaway secret key (`.devos/supabase.env`).
+**8. Design.** `docs/DESIGN_SYSTEM.md` §9 is the approved design for the staff pages (OD-02 §1: the
+human signs it by merging). The staff pages add no token, colour or face.
+**9. Tasks and gates.** The work is eight tasks, T11 to T18 (`docs/PHASES.md`), and each one leaves the
+product working. T11 and T12 add migrations, so they are risk 3 and stop at the human gate (PR-17).
+T14 to T16 (auth, headers, the first write path) are risk 3 too. T18 runs the whole zone end to end
+against the CI database and closes gate `G-Staff-editor`, signed by the human's merge.
+**10. Production (the human's part).** Before the first production deploy that carries a migration, the
+human:
+- creates the hosted project (`SETUP.md` §12.1) and confirms that its Postgres major version equals
+  `[db] major_version` in `supabase/config.toml`;
+- sets the GitHub secrets and `DEVOS_SUPABASE=true` (§12.2);
+- sets the Vercel Production values `NEXT_PUBLIC_SUPABASE_URL` and
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and **not** `SUPABASE_SECRET_KEY` (§7 above);
+- in the hosted project's Auth settings: turns sign-up off, enables TOTP, sets the Site URL to the
+  production URL, and sets the invitation template link in `docs/DATA_MODEL.md` §5.
+
+`devos-deploy` then takes the encrypted backup, applies the migrations and only then deploys the app
+(PR-18).
+**11. Done.** The request is done when the issue's own tests hold:
+- In CI, by T11 to T18: a pgTAP test in `supabase/tests/` proves that an anonymous visitor never sees
+  an unpublished notice, and that writes without the staff claim and AAL2 are refused. Every required
+  check passes, `db`, `db-test` and `types` included. The public pages look exactly as they do now.
+- On production, checked by the human after the `G-Staff-editor` merge:
+  - an invited staff account signs in with the second factor;
+  - a notice published there appears on `/ar/notices` and `/en/notices` without a redeploy;
+  - the `devos-deploy` log shows the encrypted backup, then the migrations, then the app.
+**Does not decide:**
+- a member or visitor area, or any personal data from the public;
+- in-app invitations, staff roles beyond the one claim, password recovery, account deletion;
+- deleting notices;
+- moving `LibraryProfile`;
+- removing the two JSON files (`content/**` is outside the builder's surface; the human decides);
+- media, search or a preview database (`DEVOS_PREVIEW_DB`);
+- a nonce-based CSP (CF-001);
+- a `docs/GLOSSARY.md` term for the staff account (that file is outside the intake surface; see
+  `docs/requests/issue-14.md`).
+
 ---
 
 ## D-rows

@@ -24,6 +24,7 @@ domain, a database. Anything else is out of scope until an OD adds it.
 | # | Amendment | Decision | Tasks |
 |---|---|---|---|
 | A-1 | Build design v2 (OD-07) on the home and notices pages in both locales: v2 tokens and faces, reading-room timetable, open-now status and today line, date-stamped notices. No new content, route or data collection. | OD-09 (DRAFT until the intake PR for issue #7 merges) | T07–T10 |
+| A-2 | Staff editor on Supabase. Notices and weekly opening hours move from `content/*.json` into Supabase Postgres (migrations as code, RLS proven by pgTAP). A staff area at `/[locale]/staff` (the `operator` zone, both locales) has invite-only accounts that sign in with email, password and TOTP (AAL2). There, staff create, edit, publish and unpublish notices and edit the weekly opening hours. The public pages read published rows only, refresh on publish without a redeploy, and look as before. This brings into scope, inside the zone only: staff accounts, a dashboard, staff forms and a database. Visitors still give nothing: §2 holds for them, with no analytics. | OD-10 (DRAFT until the intake PR for issue #14 merges) | T11–T18 |
 
 ## 4. Delivered scope
 

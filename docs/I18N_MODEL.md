@@ -39,3 +39,20 @@ A link to the same path under the other locale. It is a plain link: no state, no
 ## 6. Evidence
 
 `e2e/locales.spec.ts` (T05) asserts `lang`/`dir` on `/ar`, `/en`, `/ar/notices` and `/en/notices`, a 404 on `/fr` and `/fr/notices`, that the language switch keeps the path, and that the footer phone and every opening-hours time render inside `<bdi>` in both locales.
+
+## 7. The `operator` zone (OD-10)
+
+- **Routes.** The staff pages live under `/[locale]/staff` in both locales. As everywhere, `lang` and
+  `dir` come from the URL. The language switch keeps the staff path.
+- **Strings.** They come from the same two catalogues, under a `staff.*` prefix, with identical keys
+  (`guard:i18n`). There are no literals in components.
+- **Editing bilingual content.** Both members of each pair are edited on the same form, whatever the
+  page locale:
+  - Arabic fields (`titleAr`, `bodyAr`, `noteAr`) carry `dir="rtl"`; English fields carry `dir="ltr"`;
+  - no `lang` attribute is hard-coded (`guard:i18n`);
+  - both members of a pair are required together, as in `CONTENT_MODEL.md` §2.
+- **Times, dates and codes.** Times are entered and shown as 24h `HH:MM`, and dates as `YYYY-MM-DD`.
+  On display they sit inside `<Bidi>`, and so do the TOTP secret and email addresses.
+- **The invitation email** links to the Arabic route (`/ar/staff/auth/confirm`, D-02's default
+  locale). The staff member can switch language from there.
+- **Nothing locale-related is stored.** The session cookie carries no locale.
