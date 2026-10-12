@@ -114,3 +114,9 @@ e2e test asserts the computed value is `0px` in both locales. `pnpm check` exits
 ## 2026-10-12 — T11 backend module foundation (builder, Grok 4.7)
 
 The local Supabase project is on, with public sign-up off and TOTP on. Postgres major version is 17. One migration creates `private.is_staff_aal2()`, `library_notices` and `opening_slots`, with explicit privileges, row level security and the eight policies. pgTAP (`Files=1, Tests=46`) proves each principal. The public pages are unchanged and still read `content/*.json`. Awaiting the heavyweight review.
+
+---
+
+## 2026-10-12 — T12 content moved into the database (builder, Grok 4.7)
+
+The signed rows of `content/library-notices.json` and `content/opening-slots.json` now reach every database through `20261012090153_move_library_content.sql`: 4 notices (3 published, 1 draft) and 7 opening slots, `on conflict (id) do nothing`. pgTAP (`Files=2, Tests=63`) proves each moved row and that an anonymous visitor reads the three published notices, newest first, and never the draft. The pages still read the JSON files. Awaiting the heavyweight review.
