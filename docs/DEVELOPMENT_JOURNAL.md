@@ -150,3 +150,9 @@ Staff at AAL2 list every `LibraryNotice`, create one as a draft, edit it, publis
 ## 2026-10-12 — T17 opening-hours editor, attempt 1 (builder, Grok 4.7)
 
 Staff at AAL2 see the week from Saturday to Friday and add, change and remove an `OpeningSlot`. Each successful write calls `updateTag("opening-slots")`, so the home timetable, the status chip and the today line follow on the next request without a rebuild. `zod` checks the day, the `HH:MM` pair and the optional note pair. `pnpm check` exits 0. Awaiting verdict.
+
+---
+
+## 2026-10-12 — T18 whole-zone end-to-end proof, attempt 1 (builder, Grok 4.7)
+
+`e2e/staff-zone.spec.ts` runs the `operator` zone against the local database with no application change: an invited account sets a password and enrols TOTP, a `LibraryNotice` is published and then unpublished while five anonymous renders overlap, REST writes without the staff claim at AAL2 are refused, and Tuesday's close follows on both home pages before it is restored. The four public routes stay `○`, cookieless and formless. `pnpm check` exits 0. Awaiting verdict and the human's merge of gate `G-Staff-editor`.
