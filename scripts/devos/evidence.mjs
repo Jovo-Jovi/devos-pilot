@@ -11,6 +11,8 @@ import { join } from "node:path";
 import { P, config, parsePhases } from "./lib.mjs";
 import { reviewPlan, branchChanges } from "./review-mode.mjs";
 import { isActive, readEnvFile } from "./supabase.mjs";
+import * as r2 from "./r2.mjs";
+import * as fb from "./firebase.mjs";
 
 const arg = (n) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? (process.argv[i + 1] ?? "") : ""; };
 const task = arg("task");
@@ -89,10 +91,28 @@ if (isActive()) {
   } else out.push("No local database URL: policies not dumped.", "");
 }
 
+// Storage and Firebase modules (PR-26)
+if (r2.isActive()) {
+  const log = existsSync(P(".devos/logs/storage.log")) ? readFileSync(P(".devos/logs/storage.log"), "utf8") : "";
+  out.push("## Storage module (local S3 store of this run)", "",
+    "Store round trip and the app's storage tests (tail):", ...block(tail(log, 12)), "",
+    "Server-only storage code in this diff:", ...block(sh("git", ["diff", "--name-status", `${base}...HEAD`, "--", "src/lib/r2"]).text || "none"), "");
+}
+if (fb.isActive()) {
+  const seedLog = existsSync(P(".devos/logs/firestore-seed.log")) ? readFileSync(P(".devos/logs/firestore-seed.log"), "utf8") : "";
+  const rulesLog = existsSync(P(".devos/logs/firestore-rules.log")) ? readFileSync(P(".devos/logs/firestore-rules.log"), "utf8") : "";
+  out.push("## Firebase module (Firestore emulator of this run)", "",
+    `Rules files: ${fb.rulesFiles().map((f) => `\`${f}\``).join(", ")}. A change to one stops at the human gate.`, "",
+    "Rules changes in this diff:", ...block(sh("git", ["diff", `${base}...HEAD`, "--", ...fb.rulesFiles()]).text || "none"), "",
+    "Seed loaded into the emulator:", ...block(tail(seedLog, 10)), "",
+    "Rules tests (tail):", ...block(tail(rulesLog, 10)), "");
+}
+
 // Secrets in the browser bundle
 const hits = [];
-const walk = (d) => { for (const n of readdirSync(d)) { const f = join(d, n); statSync(f).isDirectory() ? walk(f) : /\.(js|html|json|map)$/.test(n) && /SUPABASE_SECRET_KEY|service_role|sb_secret_|SUPABASE_DB_URL/.test(readFileSync(f, "utf8")) && hits.push(f.slice(P().length + 1)); } };
-if (existsSync(P(".next/static"))) { walk(P(".next/static")); out.push("## Browser bundle", "", hits.length ? `**Secret names found in .next/static:** ${hits.join(", ")}` : "No secret key names in `.next/static` (searched SUPABASE_SECRET_KEY, service_role, sb_secret_, SUPABASE_DB_URL).", ""); }
+const SECRET_NAMES = /SUPABASE_SECRET_KEY|service_role|sb_secret_|SUPABASE_DB_URL|R2_SECRET_ACCESS_KEY|R2_ACCESS_KEY_ID|FIREBASE_SERVICE_ACCOUNT|"private_key"/;
+const walk = (d) => { for (const n of readdirSync(d)) { const f = join(d, n); statSync(f).isDirectory() ? walk(f) : /\.(js|html|json|map)$/.test(n) && SECRET_NAMES.test(readFileSync(f, "utf8")) && hits.push(f.slice(P().length + 1)); } };
+if (existsSync(P(".next/static"))) { walk(P(".next/static")); out.push("## Browser bundle", "", hits.length ? `**Secret names found in .next/static:** ${hits.join(", ")}` : "No secret key names in `.next/static` (searched the Supabase, R2 and Firebase key names and private_key).", ""); }
 
 // Screens
 if (existsSync(P(".devos/screens"))) {

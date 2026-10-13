@@ -55,6 +55,11 @@
       "supabase/migrations/**",
       "supabase/config.toml",
       "src/lib/supabase/**",
+      "src/lib/r2/**",
+      "src/lib/firebase/**",
+      "firebase.json",
+      "*.rules",
+      "firebase/*.rules",
       "src/proxy.ts",
       "src/middleware.ts",
       "src/**/auth/**",
@@ -184,6 +189,50 @@
         ]
       },
       "env_note": "Names the app reads, mapped from `supabase status -o env`. Local keys are the CLI's throwaway demo keys; production values live only in Vercel and GitHub secrets."
+    },
+    "r2": {
+      "$comment": "PR-26. Object storage (Cloudflare R2) through the S3 API. Active when the server-only storage code exists. Every run gets a throwaway S3-compatible store in Docker (scripts/devos/r2.mjs).",
+      "detect": "src/lib/r2",
+      "fence_hint": "\\bR2\\b|modules\\.r2",
+      "required_checks": [
+        "storage"
+      ],
+      "test_script": "test:storage",
+      "emulator": {
+        "image": "chrislusf/seaweedfs:latest",
+        "container": "devos-r2",
+        "port": 8333,
+        "bucket": "devos-test",
+        "args": []
+      },
+      "env_names": [
+        "R2_ENDPOINT",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_BUCKET",
+        "R2_PUBLIC_BASE_URL"
+      ],
+      "env_note": "Locally they point at the emulator with throwaway keys (.devos/r2.env). In production: Vercel Production env (the two keys marked sensitive) and the same five as GitHub secrets for the deploy's storage preflight. R2_ENDPOINT is https://<account-id>.r2.cloudflarestorage.com; R2_PUBLIC_BASE_URL is the bucket's public URL (r2.dev for a pilot, a custom domain for a real product)."
+    },
+    "firebase": {
+      "$comment": "PR-26. Cloud Firestore as a server-read content store, seeded from firebase/seed/*.json. Active when firebase.json exists. Every run gets the Firestore emulator under a demo project id (scripts/devos/firebase.mjs).",
+      "detect": "firebase.json",
+      "fence_hint": "Firestore|Firebase|modules\\.firebase",
+      "required_checks": [
+        "firestore-seed",
+        "firestore-rules"
+      ],
+      "rules_test_script": "test:rules",
+      "project_id_local": "demo-devos",
+      "seed_dir": "firebase/seed",
+      "seed_prune": true,
+      "client_sdk": false,
+      "env_names": [
+        "FIREBASE_PROJECT_ID",
+        "FIRESTORE_EMULATOR_HOST",
+        "FIREBASE_SERVICE_ACCOUNT"
+      ],
+      "env_note": "Locally FIREBASE_PROJECT_ID=demo-devos and FIRESTORE_EMULATOR_HOST point at the emulator (.devos/firebase.env); no credentials exist. Production: Vercel holds FIREBASE_PROJECT_ID and FIREBASE_SERVICE_ACCOUNT (a read-only key, sensitive); GitHub holds FIREBASE_PROJECT_ID and FIREBASE_DEPLOY_SERVICE_ACCOUNT for rules and seed. client_sdk false: the browser never talks to Firebase (no firebase/* web SDK; rules deny every client)."
     }
   },
   "heavy": {

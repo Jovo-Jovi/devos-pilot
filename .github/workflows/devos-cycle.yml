@@ -180,11 +180,27 @@ jobs:
           if [ -n "$CURSOR_KEY" ]; then CURSOR_API_KEY="$CURSOR_KEY" agent models > .devos/models.txt 2>&1 || true; fi
           node scripts/devos/builder-model.mjs --task "$TASK" --effort "${{ inputs.effort || 'fence' }}" --fast "${{ inputs.fast || 'fence' }}"
 
-      - name: Local Supabase for the builder (when the backend module is active)
-        if: env.REVIEW_ONLY != 'true' && hashFiles('supabase/config.toml') != ''
+      - name: Firebase CLI and Java 21 (Firebase module, PR-26)
+        timeout-minutes: 8
+        run: |
+          # Installed when the tree has firebase.json or this task's fence introduces the module.
+          need=$(node --input-type=module -e 'import { neededModules } from "./scripts/devos/modules.mjs"; console.log(neededModules(process.env.TASK).join(" "))')
+          echo "modules for $TASK: ${need:-none}"
+          case " $need " in
+            *" firebase "*)
+              if [ -n "$JAVA_HOME_21_X64" ]; then
+                echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+                echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+              fi
+              npm install -g firebase-tools > .devos/logs/firebase-tools-install.log 2>&1 || echo "::warning title=Dev OS::firebase-tools did not install; the Firebase checks will report missing"
+              firebase --version || true ;;
+          esac
+
+      - name: Local module services for the builder (Supabase, storage, Firebase)
+        if: env.REVIEW_ONLY != 'true'
         continue-on-error: true
         timeout-minutes: 15
-        run: node scripts/devos/supabase.mjs start
+        run: node scripts/devos/modules.mjs start --task "$TASK"
 
       - name: Builder — Cursor CLI
         id: builder
@@ -199,8 +215,8 @@ jobs:
         run: |
           test -n "$CURSOR_KEY" || { echo "::error::secret CURSOR_API_KEY is not set"; exit 1; }
           export CURSOR_API_KEY="$CURSOR_KEY"
-          # The local database's names and throwaway keys, when the backend module is active (PR-17).
-          if [ -f .devos/supabase.env ]; then set -a; . .devos/supabase.env; set +a; fi
+          # Every active module's local names and throwaway keys (PR-17, PR-26).
+          for f in .devos/*.env; do [ -f "$f" ] && { set -a; . "$f"; set +a; }; done
           echo "builder: $MODEL (effort ${DEVOS_BUILDER_EFFORT}, fast ${DEVOS_BUILDER_FAST}, from ${{ steps.bm.outputs.source }}) ${{ steps.bm.outputs.note }}"
           node scripts/devos/render-prompt.mjs builder "$TASK" "$ATTEMPT" --out .devos/builder-prompt.md
           set +e
@@ -366,7 +382,7 @@ jobs:
         if: steps.bs.outputs.state == 'ok'
         run: |
           node scripts/devos/review-mode.mjs --task "$TASK" --attempt "$ATTEMPT"
-          if [ -f .devos/supabase.env ]; then set -a; . .devos/supabase.env; set +a; fi
+          for f in .devos/*.env; do [ -f "$f" ] && { set -a; . "$f"; set +a; }; done
           node scripts/devos/evidence.mjs --task "$TASK" --attempt "$ATTEMPT"
           sed -n '1,12p' .devos/evidence.md
 
@@ -394,7 +410,7 @@ jobs:
           [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
           [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
           [ -n "$OAUTH$APIKEY" ] || { echo "::error::set secret CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY"; exit 1; }
-          if [ -f .devos/supabase.env ]; then set -a; . .devos/supabase.env; set +a; fi
+          for f in .devos/*.env; do [ -f "$f" ] && { set -a; . "$f"; set +a; }; done
           node scripts/devos/render-prompt.mjs reviewer "$TASK" "$ATTEMPT" --out .devos/reviewer-prompt.md
           set +e
           ( t0=$(date +%s); while sleep 60; do

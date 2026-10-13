@@ -63,6 +63,11 @@ against `docs/DATA_MODEL.md`, and prove forbidden reads are refused. A schema ch
 the human gate. Zones and the profile come only from the `devos:boundary` line in
 `docs/BOUNDARY_MODEL.md`; a zone with personal data brings the Personal-Data Protection gate.
 
+Storage (R2) and Firestore modules (PR-26): their emulators run during your review (`.devos/r2.env`,
+`.devos/firebase.env`) and the evidence pack has their sections. Check that keys and admin SDKs stay
+in `server-only` files, uploads are staff-only and strip metadata, Firestore rules deny clients and
+are proven by tests, and the seed is synthetic. A rules change stops at the human gate.
+
 ## Non-waivable gate — Boundary (Profile A)
 
 Proof that no form, input, cookie, storage, tracker, analytics script, log or route handler accepts

@@ -32,6 +32,11 @@ jobs:
         uses: supabase/setup-cli@v1
         with:
           version: latest
+      - name: Firebase CLI and Java 21 (Firebase module, PR-26)
+        if: hashFiles('firebase.json') != ''
+        run: |
+          if [ -n "$JAVA_HOME_21_X64" ]; then echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"; echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"; fi
+          npm install -g firebase-tools
       - name: Install
         run: if [ -f package.json ]; then pnpm install --frozen-lockfile; fi
       - name: Guards, typecheck, lint, test, build (+ e2e when present)

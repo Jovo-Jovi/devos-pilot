@@ -61,6 +61,25 @@ Law 151 of 2020) and state in the OD that the repository must be private before 
 - Plan a final task that exercises the whole zone end to end against the CI database (e2e with
   seeded test users) before the gate.
 
+## Requests that need object storage or Firestore (PR-26, `docs/method/FULLSTACK_MODULE.md` §9–11)
+
+- Add a **storage** and/or **Firestore** section to `docs/DATA_MODEL.md` in the intake PR: object key
+  layout, allowed types and size limits, who may upload (staff zone only, never visitors), how the
+  database points at objects; or each collection, its fields, its seed file, and who reads it (the
+  server only). Write an ADR when the product gains a second data store, saying why.
+- The **first** task of each module sets it up and nothing visible: for storage, the server-only
+  client in `src/lib/r2/` (this path activates the module) and the `test:storage` script with an
+  integration test against the local store; for Firestore, `firebase.json`, `firestore.rules`
+  (deny all clients), `*.rules.test.ts` with the `test:rules` script, the server-only reader in
+  `src/lib/firebase/`, and the synthetic seed in `firebase/seed/`. Name the module in the fence
+  ("R2" or "Firestore") so the runner starts its emulator for that task.
+- Upload tasks are **Risk 3** (staff writes, headers): the CSP `img-src` gains the bucket's public
+  origin. A Firestore rules change stops at the human gate anyway.
+- The page tasks then read through those helpers; plan a final e2e task over the whole flow
+  (staff upload → public page shows the image; seeded collection → page lists it) before a gate.
+- In the OD, list the human's setup steps by name only (`SETUP.md` §13): accounts, bucket and public
+  access, Firestore database, service accounts, GitHub secrets and variables, Vercel env.
+
 ## Rules
 
 - Change only `docs/DECISIONS.md`, `docs/SCOPE.md`, `docs/PHASES.md`, `docs/fences/**`,

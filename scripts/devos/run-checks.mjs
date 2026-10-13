@@ -7,6 +7,8 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { P, config, changedPaths, git } from "./lib.mjs";
 import * as supa from "./supabase.mjs";
+import * as r2 from "./r2.mjs";
+import * as fb from "./firebase.mjs";
 
 const strict = process.argv.includes("--strict");
 const cfg = config();
@@ -33,8 +35,21 @@ const results = [];
 // Supabase module (PR-17): a throwaway local database built from the migrations alone, before the
 // app's checks, so typecheck/test/build/e2e run against it. Its checks join the required set.
 const mod = supa.isActive() ? supa.moduleConfig() : null;
-const requiredChecks = [...cfg.required_checks, ...(mod?.required_checks ?? [])];
-const optionalChecks = [...cfg.optional_checks, ...(mod?.optional_checks ?? [])];
+// PR-26: the storage (R2) and Firebase modules, each with its own local emulator and checks.
+const r2Mod = r2.isActive() ? r2.moduleConfig() : null;
+const fbMod = fb.isActive() ? fb.moduleConfig() : null;
+const active = [mod && "supabase", r2Mod && "r2", fbMod && "firebase"].filter(Boolean);
+const requiredChecks = [...cfg.required_checks, ...[mod, r2Mod, fbMod].flatMap((m) => m?.required_checks ?? [])];
+const optionalChecks = [...cfg.optional_checks, ...[mod, r2Mod, fbMod].flatMap((m) => m?.optional_checks ?? [])];
+const record = (name, r, command, t0) => {
+  writeFileSync(P(`.devos/logs/${name}.log`), `$ ${command}\n${r.out}`);
+  results.push({ name, required: requiredChecks.includes(name), command, status: r.status === 0 ? "pass" : "fail", exit: r.status, seconds: Math.round((Date.now() - t0) / 1000), tail: r.out.split(/\r?\n/).slice(-60).join("\n") });
+};
+const pkgScript = (script, envExtra = {}) => {
+  if (!scripts[script]) return { status: 1, out: `package.json has no "${script}" script; the module requires it (docs/method/FULLSTACK_MODULE.md)` };
+  const r = spawnSync("pnpm", ["run", script], { cwd: P(), encoding: "utf8", shell: process.platform === "win32", env: { ...process.env, ...envExtra, CI: "true", FORCE_COLOR: "0" }, maxBuffer: 64 * 1024 * 1024 });
+  return { status: r.status ?? 1, out: `${r.stdout ?? ""}${r.stderr ?? ""}${r.error ? "\n" + r.error.message : ""}` };
+};
 if (mod) {
   const t0 = Date.now();
   const sec = () => Math.round((Date.now() - t0) / 1000);
@@ -71,6 +86,37 @@ if (mod) {
       }
       record("types", typesResult, `supabase gen types typescript --local (compared with ${file})`);
       if ((mod.optional_checks ?? []).includes("db-lint")) record("db-lint", supa.sb(["db", "lint", "--fail-on", "error"]), "supabase db lint --fail-on error");
+    }
+  }
+}
+
+// Storage module (PR-26): a throwaway S3-compatible store; `storage` = the store works end to end
+// (put, public read, delete) and the app's own storage tests pass against it.
+if (r2Mod) {
+  const t0 = Date.now();
+  const st = await r2.start();
+  if (!st.ok) record("storage", { status: 1, out: st.log }, "r2.mjs start", t0);
+  else {
+    Object.assign(process.env, st.env);
+    const rt = await r2.roundTrip();
+    const tests = rt.status === 0 ? pkgScript(r2Mod.test_script ?? "test:storage", st.env) : { status: 1, out: "skipped: the store round trip failed" };
+    record("storage", { status: rt.status || tests.status, out: `${rt.out}\n\n$ pnpm run ${r2Mod.test_script ?? "test:storage"}\n${tests.out}` }, `r2.mjs check + pnpm run ${r2Mod.test_script ?? "test:storage"}`, t0);
+  }
+}
+
+// Firebase module (PR-26): the Firestore emulator; `firestore-seed` = the seed is valid and loads with
+// the exact counts; `firestore-rules` = the app's rules tests (who may read and write what) pass.
+if (fbMod) {
+  const t0 = Date.now();
+  if (!fb.cliPresent()) {
+    for (const name of fbMod.required_checks ?? []) results.push({ name, required: true, status: "missing", tail: "the Firebase CLI (npm install -g firebase-tools) or Java 21 is not installed" });
+  } else {
+    const st = await fb.start();
+    if (!st.ok) for (const name of fbMod.required_checks ?? []) record(name, { status: 1, out: st.log }, "firebase.mjs start", t0);
+    else {
+      Object.assign(process.env, st.env);
+      record("firestore-seed", await fb.seed("local"), "firebase.mjs seed --local", t0);
+      record("firestore-rules", pkgScript(fbMod.rules_test_script ?? "test:rules", st.env), `pnpm run ${fbMod.rules_test_script ?? "test:rules"}`, t0);
     }
   }
 }
@@ -120,7 +166,7 @@ const summary = {
   head: (() => { try { return git(["rev-parse", "HEAD"]); } catch { return null; } })(),
   has_package_json: hasPkg,
   all_required_passed: failedRequired.length === 0,
-  modules: mod ? ["supabase"] : [],
+  modules: active,
   failed_required: failedRequired.map((r) => r.name),
   checks_modified_tracked_files: dirtied,
   results,

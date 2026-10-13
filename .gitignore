@@ -8,6 +8,14 @@
 supabase/.temp/
 supabase/.branches/
 
+# Firebase CLI local state and emulator logs; service-account keys never enter the tree (PR-26)
+.firebase/
+firebase-debug*.log
+firestore-debug*.log
+ui-debug*.log
+*-firebase-adminsdk-*.json
+*service-account*.json
+
 # Local environment
 .env
 .env.*

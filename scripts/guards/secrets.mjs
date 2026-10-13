@@ -13,6 +13,11 @@ const RULES = [
   { re: /\bsbp_[a-f0-9]{32,}/, label: "Supabase access token" },
   { re: /\b(SUPABASE_SECRET_KEY|SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD|DEVOS_BACKUP_PASSPHRASE|VERCEL_TOKEN)\s*[=:]\s*["']?[A-Za-z0-9_\-]{16,}/, label: "secret assignment" },
   { re: /postgres(ql)?:\/\/[^\s:]+:[^\s@]+@/, label: "connection string with password" },
+  // PR-26: storage and Firebase credentials.
+  { re: /\b(R2_SECRET_ACCESS_KEY|R2_ACCESS_KEY_ID|CLOUDFLARE_API_TOKEN|FIREBASE_SERVICE_ACCOUNT|FIREBASE_DEPLOY_SERVICE_ACCOUNT)\s*[=:]\s*["']?[A-Za-z0-9_\-{]{16,}/, label: "secret assignment" },
+  { re: /"type"\s*:\s*"service_account"/, label: "Google service-account key file" },
+  { re: /\b[a-f0-9]{32}\.r2\.cloudflarestorage\.com\b/, label: "R2 account endpoint (keep it in secrets)" },
+  { re: /\bAIza[0-9A-Za-z_-]{35}\b/, label: "Google API key" },
 ];
 const SKIP = [/^pnpm-lock\.yaml$/, /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|pdf|zip)$/i, /^scripts\/guards\/secrets\.mjs$/];
 

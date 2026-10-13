@@ -10,9 +10,9 @@
 // shell-sourceable KEY='value' lines. Its keys are the CLI's local demo keys, never real ones, and
 // .devos/ is never committed.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { P, config } from "./lib.mjs";
+import { P, config, writeDevosEnv, readDevosEnv } from "./lib.mjs";
 
 export const moduleConfig = () => config().modules?.supabase ?? null;
 export const isActive = () => {
@@ -50,21 +50,15 @@ export function writeEnv(vars) {
     const v = sources.map((s) => vars[s]).find((x) => x);
     if (v) env[name] = v;
   }
-  mkdirSync(P(".devos"), { recursive: true });
-  writeFileSync(P(".devos/supabase.env"), Object.entries(env).map(([k, v]) => `${k}='${v.replace(/'/g, "")}'`).join("\n") + "\n");
+  writeDevosEnv("supabase", env);
   return env;
 }
 
-/** Read .devos/supabase.env into an object (used by screens.mjs, probe.mjs, run-checks.mjs). */
+/** Read the names of every active module (.devos/*.env: supabase, r2, firebase) into one object.
+ *  Used by screens.mjs, probe.mjs, evidence.mjs and the app's Playwright config, so a page served for
+ *  e2e or screenshots sees every module's local services, not only the database (PR-26). */
 export function readEnvFile() {
-  const f = P(".devos/supabase.env");
-  if (!existsSync(f)) return {};
-  const env = {};
-  for (const line of readFileSync(f, "utf8").split(/\r?\n/)) {
-    const m = /^([A-Z][A-Z0-9_]*)='(.*)'$/.exec(line.trim());
-    if (m) env[m[1]] = m[2];
-  }
-  return env;
+  return readDevosEnv();
 }
 
 /** Start the stack unless it already runs. Returns { ok, log, env }. */

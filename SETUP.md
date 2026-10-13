@@ -334,3 +334,53 @@ branch protection for `devos/verdict` needs GitHub Pro; without it, keep merging
 - Each cycle run starts a local Supabase in Docker, adding a few minutes.
 - To try the stack yourself: install the Supabase CLI and Docker, `supabase start`, `supabase db reset`.
 
+## 13. Storage (Cloudflare R2) and Firestore modules (PR-26)
+
+As with §12, the method side is in the repository; the product side comes through a change request.
+Every run tests against local copies (an S3 store in Docker, the Firestore emulator), so nothing
+below is needed for building and reviewing, only for **production**. You can do it while the
+first tasks run; the deploy steps stay off until the variables are `true`.
+
+### 13.1 Cloudflare R2 (a new account)
+1. Create a Cloudflare account for the pilot. In the dashboard open **R2 Object Storage** and
+   activate it. The free tier covers 10 GB of storage, 1 million writes and 10 million reads a
+   month, with no egress fees; Cloudflare may still ask for a payment method to activate R2. Set a
+   billing notification if it does.
+2. **Create bucket** `devos-pilot-images`, location Automatic, storage class Standard.
+3. Bucket → **Settings → Public access → R2.dev subdomain → Allow**. Copy the public URL
+   (`https://pub-….r2.dev`): that is `R2_PUBLIC_BASE_URL`. (For a real product, connect a custom
+   domain here instead; r2.dev is rate-limited.)
+4. R2 → **Manage API tokens → Create API token**: permission **Object Read & Write**, applied to
+   **this bucket only**. Copy the **Access Key ID** and **Secret Access Key** (shown once) and the
+   **S3 endpoint** `https://<account-id>.r2.cloudflarestorage.com` (`R2_ENDPOINT`, without the bucket).
+
+### 13.2 Firebase (a new project)
+1. console.firebase.google.com → **Create a project** `devos-pilot`; turn **Google Analytics off**
+   (the site has no trackers). It starts on the free Spark plan.
+2. **Build → Firestore Database → Create database**, location **europe-west3 (Frankfurt)**, start in
+   **production mode** (deny all; the repo's rules replace it on the first deploy).
+3. Project settings → General: copy the **Project ID** (`FIREBASE_PROJECT_ID`).
+4. Google Cloud console (same project) → **IAM & Admin → Service accounts**, create two accounts and
+   a JSON key for each (**Keys → Add key → JSON**). Paste the whole JSON where shown, then delete the
+   downloaded file:
+   - `devos-deploy`, role **Firebase Admin** → GitHub secret `FIREBASE_DEPLOY_SERVICE_ACCOUNT`;
+   - `devos-runtime`, role **Cloud Datastore Viewer** (read-only) → Vercel `FIREBASE_SERVICE_ACCOUNT`.
+
+### 13.3 GitHub secrets and variables
+Settings → Secrets and variables → Actions:
+- secrets `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`
+  (used only by the deploy's storage preflight);
+- secrets `FIREBASE_PROJECT_ID`, `FIREBASE_DEPLOY_SERVICE_ACCOUNT`;
+- variables `DEVOS_R2` = `true` and `DEVOS_FIREBASE` = `true`.
+
+### 13.4 Vercel environment (Production only)
+`R2_ENDPOINT`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`, `R2_ACCESS_KEY_ID` (**Sensitive**),
+`R2_SECRET_ACCESS_KEY` (**Sensitive**), `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT`
+(**Sensitive**, the read-only key's whole JSON).
+
+### 13.5 What happens on your merges
+`devos-deploy` then runs, in order: guards → storage preflight (write a probe with the production
+keys, read it from the public URL, delete it) → database backup and migrations → Firestore rules →
+Firestore seed → app → smoke test. Any failure stops before the app moves and says which setting to
+fix. A task that changes the Firestore rules stops at your gate, like a migration.
+

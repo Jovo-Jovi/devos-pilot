@@ -1,6 +1,6 @@
 // Shared helpers for the Dev OS runner. Dependency-free on purpose: it must run before T01
 // creates package.json, on Linux CI and on a developer machine.
-import { readFileSync, writeFileSync, existsSync, appendFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -136,6 +136,45 @@ export function emit(obj) {
 export function fail(msg, code = 1) {
   console.error(`DEVOS: ${msg}`);
   process.exit(code);
+}
+
+// ---------- module environments (PR-17, PR-26) ----------------------------------------------
+// Each active stack module writes the names the app reads to .devos/<module>.env as shell-sourceable
+// KEY='value' lines. Values are local throwaway ones (emulators, demo keys); .devos/ is never committed.
+
+/** Write .devos/<name>.env from an object. */
+export function writeDevosEnv(name, env) {
+  mkdirSync(P(".devos"), { recursive: true });
+  writeFileSync(P(`.devos/${name}.env`), Object.entries(env).map(([k, v]) => `${k}='${String(v).replace(/'/g, "")}'`).join("\n") + "\n");
+}
+
+/** Read every .devos/*.env (all active modules) into one object. */
+export function readDevosEnv() {
+  const env = {};
+  if (!existsSync(P(".devos"))) return env;
+  for (const f of readdirSync(P(".devos")).filter((n) => n.endsWith(".env")).sort()) {
+    for (const line of readFileSync(P(".devos", f), "utf8").split(/\r?\n/)) {
+      const m = /^([A-Z][A-Z0-9_]*)='(.*)'$/.exec(line.trim());
+      if (m) env[m[1]] = m[2];
+    }
+  }
+  return env;
+}
+
+/** Wait until something accepts TCP connections on host:port (emulators). */
+export async function waitForPort(port, host = "127.0.0.1", seconds = 90) {
+  const { connect } = await import("node:net");
+  const until = Date.now() + seconds * 1000;
+  while (Date.now() < until) {
+    const ok = await new Promise((res) => {
+      const s = connect({ port, host }, () => { s.destroy(); res(true); });
+      s.on("error", () => res(false));
+      s.setTimeout(2000, () => { s.destroy(); res(false); });
+    });
+    if (ok) return true;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return false;
 }
 
 export { existsSync, readFileSync, writeFileSync };

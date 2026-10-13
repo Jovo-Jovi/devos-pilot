@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { P, config, parsePhases, isHumanGate, taskAfter, updatePhasesRow, changedPaths, emit, fail } from "./lib.mjs";
 import { looksLikeLimit, readText, resumeMarker, notBefore, agentStats } from "./limits.mjs";
+import { rulesFiles } from "./firebase.mjs";
 
 const arg = (n, d = "") => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
 const task = arg("task");
@@ -54,10 +55,11 @@ function finish(verdict, action, extra = {}) {
   process.exit(0);
 }
 
-/** Migration files this branch adds or changes against the base branch. */
+/** Migration files, and (PR-26) Firestore rules files, this branch adds or changes against the base. */
 function schemaChanges() {
   try {
-    const out = execFileSync("git", ["diff", "--name-only", `origin/${cfg.base_branch ?? "main"}...HEAD`, "--", "supabase/migrations"], { cwd: P(), encoding: "utf8" });
+    const rules = cfg.modules?.firebase ? rulesFiles() : [];
+    const out = execFileSync("git", ["diff", "--name-only", `origin/${cfg.base_branch ?? "main"}...HEAD`, "--", "supabase/migrations", ...rules], { cwd: P(), encoding: "utf8" });
     return out.split(/\r?\n/).filter(Boolean);
   } catch {
     return existsSync(P("supabase/migrations")) ? ["(could not diff against the base branch)"] : [];
@@ -169,7 +171,7 @@ if (verdict === "PASS") {
   finish("PASS", gate ? "human_gate" : "merge", {
     summary: structured.summary,
     fence: structured.fence_written,
-    human: gate ? `${why}: review the PR${schema.length ? " and every migration in it" : ""} and merge it to sign off. Merging restarts the cycle.` : structured.human_attention,
+    human: gate ? `${why}: review the PR${schema.length ? " and every migration or rules change in it" : ""} and merge it to sign off. Merging restarts the cycle.` : structured.human_attention,
   });
 }
 

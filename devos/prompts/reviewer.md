@@ -57,6 +57,10 @@ part: a red required check fails the verdict whatever you write (PR-08), and the
    that matter (an anonymous read of a draft, a write without the staff claim) and that the pack
    shows them passing. Only if the pack lacks something, run one `psql "$SUPABASE_DB_URL" -c "…"`.
    The pack confirms no secret key name in `.next/static`. A schema change stops at the human gate.
+   **Storage and Firestore (PR-26):** from the pack's module sections and the diff, confirm uploads
+   run only in staff server actions behind the staff check, validate type and size, re-encode and
+   strip metadata; keys and admin SDKs sit only in `server-only` files; `firestore.rules` denies
+   clients and the rules tests prove it; the seed is synthetic. `guard:services` must be PASS.
    **Personal data (a zone with `personal_data: true`):** apply the Personal-Data Protection gate
    against `docs/PROTECTION_MODEL.md`: purpose per field, database-enforced access, tested deletion
    and export, scheduled retention, no real person's data anywhere.
