@@ -204,6 +204,102 @@ human:
 - a `docs/GLOSSARY.md` term for the staff account (that file is outside the intake surface; see
   `docs/requests/issue-14.md`).
 
+### OD-11 — Book types from Firestore, with staff cover images in Cloudflare R2
+**Status:** DRAFT — signed when the human merges the intake PR
+**Amends:** OD-10 §1 (the `operator` zone gains the storage code `src/lib/r2/**` and one staff page),
+OD-10 §7 (the app gains two server-only credentials: the R2 keys and a read-only Firestore key) and
+OD-10 "Does not decide" (media). OD-08 left the production data stores open, and OD-10 decided
+Supabase; this OD adds two more stores (ADR-003). OD-01 §3 stays non-waivable outside the zone, and
+OD-04 and OD-06 (no Supabase, Firebase or Cloudflare MCP) are unchanged.
+**Requested by:** issue #26
+**1. Purpose.** The pilot gains the storage (R2) and Firestore modules of PR-26, to test them end to
+end through the cycle, from their first setup task to a production deploy (ADR-003 records that a real
+product would rarely run three stores).
+**2. New entity `BookType`** (نوع الكتب): one kind of book the library holds, with an `id`
+(kebab-case), a name and a one-line description in Arabic and English, and a sort order. The row for
+`docs/GLOSSARY.md` §1 is given in `docs/CONTENT_MODEL.md` §2; T19 lands it word for word (the
+glossary is outside the intake surface, and this OD signs the term).
+**3. Book types live in Cloud Firestore**, collection `book_types`, as `docs/DATA_MODEL.md` §12 says.
+The synthetic seed `firebase/seed/book_types.json` holds exactly 5 types and is their source of truth.
+They change only by editing that file through a change request; `devos-deploy` writes it to Firestore
+after the human's merge and removes documents the file no longer has (PR-26). Staff do not edit types,
+and the app never writes to Firestore. The app reads Firestore on the server only, with
+`firebase-admin`; the browser never talks to Firebase, there is no Firebase web SDK in the app and no
+analytics. `firestore.rules` denies every client, proven against the emulator; a change to it stops at
+the human gate (PR-26).
+**4. Public page `/[locale]/book-types`**, both locales, linked from the home page. It lists the
+types in sort order, each with its name, its one-line description and its cover when one is set, or
+the placeholder of `docs/DESIGN_SYSTEM.md` §10 when none is. The page frame is static; the list is read
+on the server at request time through tag-cached reads (`book-types`, `book-type-covers`), so the
+build needs no Firestore credential. Covers sit beside the type's name and are decorative (`alt=""`).
+**5. Cover images in Cloudflare R2**, as `docs/DATA_MODEL.md` §11 says. Uploads happen only in a
+staff-zone server action, after the server checks the staff claim and AAL2 (OD-10 §4):
+- JPEG, PNG or WebP, recognised by the file's first bytes, up to 5 MB (5 × 1024 × 1024 bytes), checked
+  on the server; anything else is refused with a message in the staff member's language;
+- re-encoded with `sharp` to WebP at most 1200 px wide, with **all metadata removed**, stored under a
+  new immutable key `book-types/<book type id>/<uuid>.webp`;
+- the old object is deleted after the database points at the new one, on replace and on remove.
+Visitors never upload anything.
+**6. The link from a type to its image** lives in Supabase, table `public.book_type_covers`
+(`docs/DATA_MODEL.md` §10): anonymous visitors read it, staff at AAL2 insert, update and delete it,
+proven by pgTAP. A staff write invalidates the tag `book-type-covers`, so the public page shows the new
+cover without a redeploy.
+**7. Staff page `/[locale]/staff/book-types`** lists every type with its cover or the placeholder, and
+lets staff upload, replace or remove the cover of each. The staff home links to it. It composes
+`docs/DESIGN_SYSTEM.md` §9 and §10 and adds no token, colour or face.
+**8. Zone and boundary.** The `operator` zone's source gains `src/lib/r2/**`; its URLs and
+`personal_data: false` are unchanged (`docs/BOUNDARY_MODEL.md`). Cover images are library content,
+not personal data, and their metadata (which can carry location and device) is removed before storage.
+Firestore and the R2 bucket are the product's own stores, not third parties: Firestore is reached from
+the server only, and the bucket serves public images. Public responses still set no cookie.
+**9. Headers.** The CSP `img-src` gains the origin of `R2_PUBLIC_BASE_URL`, read at build time
+(`docs/SECURITY_MODEL.md` §2b); every other directive is unchanged, `connect-src` included (no
+browser upload to the bucket). Server actions accept request bodies large enough for a 5 MB file.
+**10. Keys.** The app reads `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` and
+`R2_PUBLIC_BASE_URL`, and `FIREBASE_PROJECT_ID` with `FIREBASE_SERVICE_ACCOUNT` (a read-only key), only
+in `server-only` modules (`guard:services`). `SUPABASE_SECRET_KEY` stays out of Vercel (OD-10 §7).
+**11. Tasks and gates.** Seven tasks, T19 to T25 (`docs/PHASES.md`), each leaving the product working:
+T19 sets up the Firestore module and T22 the storage module, each with nothing visible. T19 (rules
+file), T21 (migration), T22 (storage keys), T23 (headers) and T24 (staff writes) are risk 3 and stop at
+the human gate. T25 runs the whole flow end to end and closes gate `G-Book-types`, signed by the
+human's merge.
+**12. Production (the human's part, by name only; steps in `SETUP.md` §13).** Before the first
+production deploy that carries these modules, the human:
+- creates the Cloudflare account, the bucket with public access (r2.dev for the pilot) and an API token
+  for that bucket only (§13.1);
+- creates the Firebase project with Analytics off, the Firestore database, and the two service accounts
+  `devos-deploy` (Firebase Admin) and `devos-runtime` (Cloud Datastore Viewer) (§13.2);
+- sets the GitHub secrets `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`,
+  `R2_PUBLIC_BASE_URL`, `FIREBASE_PROJECT_ID`, `FIREBASE_DEPLOY_SERVICE_ACCOUNT`, and the variables
+  `DEVOS_R2=true` and `DEVOS_FIREBASE=true` (§13.3);
+- sets the Vercel Production variables `R2_ENDPOINT`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`,
+  `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` (both Sensitive), `FIREBASE_PROJECT_ID` and
+  `FIREBASE_SERVICE_ACCOUNT` (Sensitive, the `devos-runtime` key) (§13.4).
+
+`devos/setup.json` already lists every one of these, so `devos-setup` reports what is missing.
+`devos-deploy` then runs the storage preflight, the backup and the migration, the Firestore rules and
+the seed, and only then the app (PR-18, PR-26).
+**13. Done.** The request is done when the issue's own tests hold:
+- In CI, by T19 to T25: `/ar/book-types` and `/en/book-types` list the 5 seeded types in sort order, in
+  the right language and direction, and the home page links to them in both locales; an upload over
+  5 MB or of another type is refused with a message in both languages; the stored object is WebP with
+  no EXIF; anonymous visitors and staff at AAL1 cannot upload or write the link (e2e and pgTAP); the
+  Firestore rules refuse every client (`firestore-rules`). Every required check passes, `storage`,
+  `firestore-seed`, `firestore-rules` and `guards` (with `guard:services`) included.
+- On production, checked by the human after the `G-Book-types` merge: a cover uploaded by staff shows on
+  the public page within a minute; replacing it shows the new one; removing it shows the placeholder;
+  the `devos-deploy` log shows the storage preflight, the Firestore rules and the seed passing.
+**Does not decide:**
+- staff editing of book types, or any app write to Firestore;
+- alt text for covers (they are decorative), captions, galleries or any other image;
+- presigned or direct browser uploads to the bucket (they would need a CSP `connect-src` change);
+- R2 object versioning, a lifecycle copy or any other backup of uploaded images
+  (`docs/method/FULLSTACK_MODULE.md` §9); a custom domain for the bucket;
+- a production file-size limit above the hosting platform's own request-body limit
+  (`docs/requests/issue-26.md`, "Known limits");
+- removing a cover link whose type later disappears from the seed (the page ignores it);
+- a nonce-based CSP (CF-001).
+
 ---
 
 ## D-rows

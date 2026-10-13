@@ -185,3 +185,56 @@ style of their own**. The public pages (§4) do not change.
    only, no horizontal scroll at 390px and 44px tap targets.
 8. **The visual check for staff tasks** reads the staff screenshots that the task's e2e saves, in both
    locales and at 1280px and 390px, against this section and §1–§6.
+
+## 10. Book types and covers (issue #26, OD-11)
+
+Approved with OD-11, which the human signs by merging the intake PR. There is no mockup. The page
+composes §1–§6 and adds **no token, colour or face**; the existing pages change only by the home link
+of point 1.
+
+1. **Home link.** After the "Latest notices" section's "All notices" link, a paragraph with one link,
+   `link.bookTypes`, styled like `.all-notices`. The header navigation does not change.
+2. **Page `/[locale]/book-types`.** Header → `h1` `bookTypes.title` (`.page-title`, as the notices
+   page) → an `<ol>` of `BookTypeEntry`, in `sortOrder` → footer. `PendingState` with
+   `state.pendingBookTypes` when there is no valid type.
+3. **`BookTypeEntry`** (`src/components/BookTypeEntry.tsx`): a list item, not a card, in the
+   `NoticeEntry` rhythm (1px `--color-line` separators, padding-block `--space-5`). A two-column grid:
+   `BookCover` at the inline start, then the name as `h2` in the §2 notice-title style and the
+   description under it in body text, `--color-ink-muted`. Column gap `--space-4`; the text column
+   is centred on the cover's block axis. Phone: the same two columns.
+4. **`BookCover`** (`src/components/BookCover.tsx`): a box `inline-size: 4.5rem`,
+   `aspect-ratio: 3 / 4`, `--radius-stamp`, 1px `--color-line` border, `overflow: hidden`.
+   - **With a cover:** `<img alt="">` filling the box with `object-fit: cover`, `loading="lazy"`,
+     `decoding="async"`. It is decorative: the name beside it is the accessible text.
+   - **The placeholder** (no cover): the same box, `--color-lapis-wash` background, `aria-hidden`, with
+     nothing inside. Never a stock picture, an icon font or text.
+5. **Staff page `/[locale]/staff/book-types`** (§9 applies): `h1` `staff.bookTypesTitle`; one entry
+   per type in the `BookTypeEntry` rhythm, with `BookCover`, the name in the page's locale, then a
+   form with a labelled file field (`staff.coverFile`, hint `staff.coverHint`, `accept` the three
+   types) and a primary button (`staff.coverUpload`, or `staff.coverReplace` when a cover exists), and,
+   when a cover exists, a secondary button `staff.coverRemove`. Errors and confirmations follow §9.4.
+   The staff home lists `staff.bookTypesLink` after the hours editor.
+6. **Catalogue keys added** (both locales, identical key sets). In the texts, `{formats}` and `{limit}`
+   are filled with `JPEG, PNG, WebP` and `5 MB` inside `Bidi`:
+
+| Key | Arabic | English |
+|---|---|---|
+| `link.bookTypes` | أنواع الكتب في المكتبة | Book types at the library |
+| `bookTypes.title` | أنواع الكتب | Book types |
+| `state.pendingBookTypes` | ستُنشر أنواع الكتب قريبًا. | Book types will be published soon. |
+| `staff.bookTypesLink` | أغلفة أنواع الكتب | Book type covers |
+| `staff.bookTypesTitle` | أغلفة أنواع الكتب | Book type covers |
+| `staff.coverFile` | صورة الغلاف | Cover image |
+| `staff.coverHint` | {formats}، حتى {limit}. | {formats}, up to {limit}. |
+| `staff.coverUpload` | رفع الغلاف | Upload cover |
+| `staff.coverReplace` | استبدال الغلاف | Replace cover |
+| `staff.coverRemove` | إزالة الغلاف | Remove cover |
+| `staff.coverTooLarge` | الملف أكبر من {limit}. اختر صورة أصغر. | The file is larger than {limit}. Choose a smaller image. |
+| `staff.coverWrongType` | هذا الملف ليس صورة {formats}. | This file is not a {formats} image. |
+| `staff.coverSaveError` | تعذّر حفظ الغلاف. حاول مرة أخرى. | The cover could not be saved. Try again. |
+| `staff.coverSaved` | حُفظ الغلاف. | Cover saved. |
+| `staff.coverRemoved` | أُزيل الغلاف. | Cover removed. |
+
+   T20 adds the first three keys; T24 adds the `staff.*` keys.
+7. **Visual check.** From T20 the cycle's screenshots include `/ar/book-types` and `/en/book-types` at
+   1280px and 390px, and from T24 the staff book-types page in both locales.

@@ -54,6 +54,29 @@ In the database (OD-10) the columns are the snake_case forms of these fields, wi
 check constraints (`docs/DATA_MODEL.md` §2). Staff publish a notice by setting `status` to
 `published` and unpublish it by setting it back to `draft`. Notices are never deleted.
 
+### `BookType` (OD-11, DRAFT until the intake PR for issue #26 merges)
+
+Stored in Cloud Firestore, collection `book_types`, seeded from `firebase/seed/book_types.json`
+(`docs/DATA_MODEL.md` §12). It is not in `content/`: the seed file is its source of truth.
+
+| Field | Type | Rule |
+|---|---|---|
+| `id` | string | kebab-case, unique; the Firestore document id |
+| `nameAr`, `nameEn` | string | bilingual pair, both required |
+| `descriptionAr`, `descriptionEn` | string | one line each, bilingual pair, both required |
+| `sortOrder` | integer ≥ 0 | list order, ascending; ties by `id` |
+
+Its cover is not a field: it is a row of `public.book_type_covers` pointing at an object in the
+bucket (`docs/DATA_MODEL.md` §10–§11). Count: `node scripts/devos/firebase.mjs validate` →
+`seed valid: book_types (5)`.
+
+**The glossary row** (OD-11 §2; T19 adds it to `docs/GLOSSARY.md` §1, after the `LibraryProfile` row,
+word for word):
+
+```text
+| `BookType` | One kind of book the library holds (novels, poetry, history…), listed on the book-types page; read from Firestore, never written by the app | نوع الكتب |
+```
+
 ## 3. Routes
 
 | Route | Shows | Task |
@@ -63,6 +86,8 @@ check constraints (`docs/DATA_MODEL.md` §2). Staff publish a notice by setting 
 | `/[locale]/notices` | every published `LibraryNotice`, newest first | T04 |
 | any other first segment | 404 | T01 |
 | `/[locale]/staff/**` | the `operator` zone (OD-10): staff sign-in and the editors for `LibraryNotice` and `OpeningSlot`; nothing for visitors | T14–T17 |
+| `/[locale]/book-types` | every valid `BookType`, by `sortOrder`, with its cover or the placeholder (OD-11) | T20, T23 |
+| `/[locale]/staff/book-types` | the cover editor (OD-11): upload, replace or remove each `BookType`'s cover | T24 |
 
 ## 4. Validation
 

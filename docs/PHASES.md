@@ -27,6 +27,13 @@ The runner reads the table below, and `guard:phases` checks it.
 | T16 | P05 | J6 | Notices editor: create, edit, publish, unpublish; public pages refresh by tag | 3 | — | [x] | PASS a1 — docs/reviews/T16-a1.md |
 | T17 | P05 | J6 | Opening-hours editor: add, change and remove periods | 2 | — | [x] | PASS a1 — docs/reviews/T17-a1.md |
 | T18 | P05 | J6 | Whole-zone end-to-end proof against the CI database | 2 | G-Staff-editor | [x] | PASS a1 — docs/reviews/T18-a1.md |
+| T19 | P06 | J4 | Firestore module: rules denying every client, rules tests, server-only reader, book-types seed | 3 | — | [ ] | — |
+| T20 | P06 | J5 | Public book-types page from Firestore, with the cover placeholder, linked from home | 2 | — | [ ] | — |
+| T21 | P06 | J4 | Migration: book_type_covers link table with RLS and pgTAP proof | 3 | — | [ ] | — |
+| T22 | P06 | J4 | Storage module: server-only bucket client, image validation and re-encoding, storage tests | 3 | — | [ ] | — |
+| T23 | P06 | J5 | Public page shows covers from the bucket; CSP img-src gains the bucket origin | 3 | — | [ ] | — |
+| T24 | P06 | J6 | Staff cover editor: upload, replace, remove; staff home link | 3 | — | [ ] | — |
+| T25 | P06 | J6 | Whole-flow end-to-end proof and production checklist | 2 | G-Book-types | [ ] | — |
 
 ## Phase outlines (the reviewer writes each fence from these)
 
@@ -187,3 +194,78 @@ at the human gate.
   The task also: rescans the built HTML and the public responses (no form, no cookie); runs a final
   visual check of the eight public screens against T13's; and writes a post-merge production
   checklist in the report for OD-10 §11. Gate `G-Staff-editor`: the human's merge signs it.
+
+Phase P06, book types and covers (OD-11, issue #26). The model is `docs/DATA_MODEL.md` §10–§12 and
+`docs/DESIGN_SYSTEM.md` §10. From T19 every run starts the Firestore emulator, and from T22 the local
+S3 store as well (PR-26). A rules change or a migration stops at the human gate.
+
+- **T19** (OD-11, issue #26): issued, `docs/fences/T19.md`. The Firestore module and nothing visible:
+  - `firebase.json`, `firestore.rules` (deny every client) and the synthetic seed
+    `firebase/seed/book_types.json` (5 types);
+  - `firebase/firestore.rules.test.ts` (10 tests against the emulator), `vitest.rules.config.ts` and
+    the `test:rules` script;
+  - the pure `BookType` parser in `src/content/book-types.ts` (Zod, skip and count invalid documents,
+    sort by `sortOrder` then `id`) with 5 unit tests, one of them over the seed file;
+  - the server-only `src/lib/firebase/server.ts` and `src/lib/firebase/book-types.ts`;
+  - the `BookType` row in `docs/GLOSSARY.md` §1, word for word from `CONTENT_MODEL.md` §2.
+
+  Dependencies `firebase-admin`; dev `@firebase/rules-unit-testing` and `firebase` (its peer, tests
+  only). Risk 3: a rules file, human gate.
+- **T20**: the public page `/[locale]/book-types`:
+  - a cached server reader in `src/content/readers.ts` (`'use cache'`, `cacheTag("book-types")`,
+    `cacheLife("hours")`) over `readBookTypes()`; the page frame is static and the list renders at
+    request time behind `connection()` in a `Suspense` boundary, so the build needs no Firestore key;
+  - components `BookTypeEntry` and `BookCover` (placeholder only for now) per `DESIGN_SYSTEM.md` §10;
+    `PendingState` with `state.pendingBookTypes` when the collection is empty;
+  - the home link `link.bookTypes` after the notices section; catalogue keys of §10 in both locales;
+  - e2e: both locales list the 5 types in sort order with `dir` right, names in the locale, the home
+    link in both locales, 5 placeholders; screenshots of `/ar/book-types` and `/en/book-types` at
+    1280px and 390px join the visual check.
+
+  Risk 2.
+- **T21**: `supabase migration new create_book_type_covers` with exactly `DATA_MODEL.md` §10 (table,
+  checks, privileges, RLS, four policies); pgTAP `supabase/tests/database/book_type_covers_rls.test.sql`
+  for every principal of §1 (anon reads and cannot write; no claim and AAL1 cannot insert, update or
+  delete; AAL2 can); the regenerated types. Nothing visible changes. Risk 3, schema change, human gate.
+- **T22**: the storage module and nothing visible (name it "R2" in the fence so the runner starts the
+  local store):
+  - `src/lib/r2/client.ts` (server-only `S3Client` per `.cursor/rules/71-r2.mdc`), `src/lib/r2/env.ts`,
+    `src/lib/r2/objects.ts` (put with `image/webp` and an immutable cache header, delete, public URL);
+  - `src/lib/r2/cover-image.ts`: type by magic bytes, the 5 MB limit, `sharp` re-encode (orientation
+    applied, at most 1200 px wide, WebP, no metadata), and the key `book-types/<id>/<uuid>.webp`;
+  - unit tests for the type check, the limit and the key; `src/lib/r2/*.storage.test.ts` against the
+    local store (upload a JPEG carrying EXIF, read it from the public URL, assert WebP, width ≤ 1200,
+    no EXIF, then delete); `vitest.storage.config.ts` and the `test:storage` script; the default unit
+    run excludes `*.storage.test.ts`.
+
+  Dependencies `@aws-sdk/client-s3` and `sharp`. Risk 3: storage keys.
+- **T23**: the public page shows covers:
+  - a cached reader of `public.book_type_covers` with the public client (`cacheTag("book-type-covers")`,
+    `cacheLife("minutes")`); `BookCover` renders `<img alt="">` from the public URL, or the placeholder;
+  - `next.config.ts`: `img-src` gains the origin of `R2_PUBLIC_BASE_URL` (unchanged when it is unset),
+    for the baseline and therefore the staff CSP (`SECURITY_MODEL.md` §2b); `src/security/headers.test.ts`
+    follows;
+  - e2e puts a test object in the local store and a link row with the throwaway secret key (tests
+    only), sees the cover in both locales, then removes both.
+
+  Risk 3: headers.
+- **T24**: the staff cover editor `/[locale]/staff/book-types`:
+  - every type with its cover or the placeholder, a file field (`accept` the three types) and upload or
+    replace, and remove when a cover exists (`DESIGN_SYSTEM.md` §9, §10);
+  - server actions check the staff claim and AAL2, check the id against `readBookTypes()`, validate and
+    re-encode through `src/lib/r2/`, put the new object, upsert the link with the staff session client,
+    then delete the old object (on a link failure, delete the new object instead), and `updateTag`
+    `book-type-covers`; remove deletes the link, then the object;
+  - `experimental.serverActions.bodySizeLimit` admits a 5 MB file; refusals (`tooLarge`, `wrongType`,
+    `save`) in both locales; the staff home links to the editor;
+  - e2e: upload, replace (the old object is gone), remove; a 6 MB file and a GIF are refused with the
+    message in both locales; an AAL1 session cannot reach the page or the action.
+
+  Risk 3: staff writes.
+- **T25**: `e2e/book-types-flow.spec.ts` over the whole flow against the CI database, the local store
+  and the emulator: the seeded types in both locales; staff upload → the public page shows the cover
+  without a rebuild; the stored object is WebP with no EXIF; replace; remove → the placeholder; REST
+  writes to `book_type_covers` refused for anon, no claim and AAL1. It also rescans the built HTML and
+  the public responses (no form, no cookie, no Firebase script), runs the visual check of the public
+  and staff book-types screens, and writes the post-merge production checklist for OD-11 §12–§13 in
+  the report. Gate `G-Book-types`: the human's merge signs it.
