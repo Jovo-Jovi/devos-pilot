@@ -9,7 +9,7 @@
 // names it (modules.<name>.fence_hint): the task that introduces a module gets its emulator from the start.
 import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { P, config } from "./lib.mjs";
+import { P, config, parsePhases } from "./lib.mjs";
 import * as supabase from "./supabase.mjs";
 import * as r2 from "./r2.mjs";
 import * as firebase from "./firebase.mjs";
@@ -28,6 +28,13 @@ export function neededModules(task = "") {
 }
 
 export const activeModules = () => Object.keys(MODULES).filter((n) => config().modules?.[n] && MODULES[n].isActive());
+
+/** PR-27: modules the project uses or is about to use: active, or named by the fence of any open task
+ *  (so the setup list appears as soon as the intake that introduces a module is merged). */
+export function plannedModules() {
+  const open = parsePhases().rows.filter((r) => !r.done).map((r) => r.task);
+  return [...new Set([...activeModules(), ...open.flatMap((t) => neededModules(t))])];
+}
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const cmd = process.argv[2];

@@ -35,7 +35,7 @@ function commonVars(cfg, rows) {
 export function renderPrompt(role, task, attempt) {
   const cfg = config();
   const { rows } = parsePhases();
-  if (role === "intake") return fill(role, commonVars(cfg, rows));
+  if (role === "intake" || role === "method") return fill(role, commonVars(cfg, rows));
   const row = rows.find((r) => r.task === task);
   if (!row) fail(`render-prompt: ${task} not in docs/PHASES.md`);
   const next = taskAfter(rows, task);
@@ -80,8 +80,8 @@ function fill(role, vars) {
 
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("render-prompt.mjs")) {
   const [role, task, attemptRaw] = process.argv.slice(2);
-  if (!["builder", "reviewer", "revise", "intake"].includes(role) || (role !== "intake" && !/^T\d{2}$/.test(task ?? ""))) {
-    fail("usage: render-prompt.mjs builder|reviewer|revise Tnn attempt | intake - - [--out file]", 2);
+  if (!["builder", "reviewer", "revise", "intake", "method"].includes(role) || (!["intake", "method"].includes(role) && !/^T\d{2}$/.test(task ?? ""))) {
+    fail("usage: render-prompt.mjs builder|reviewer|revise Tnn attempt | intake|method - - [--out file]", 2);
   }
   const text = renderPrompt(role, task, Number(attemptRaw || "1"));
   const oi = process.argv.indexOf("--out");

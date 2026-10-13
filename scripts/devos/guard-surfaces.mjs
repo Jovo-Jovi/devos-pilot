@@ -12,7 +12,7 @@
 //
 // Usage: node scripts/devos/guard-surfaces.mjs builder|reviewer|intake|revise [--strict]
 import { rmSync, mkdirSync, appendFileSync } from "node:fs";
-import { changedPaths, config, matchesAny, fail, git, P } from "./lib.mjs";
+import { changedPaths, config, matchesAny, fail, git, P, parsePhases, isMethodRow } from "./lib.mjs";
 
 const role = process.argv[2];
 const strict = process.argv.includes("--strict");
@@ -21,10 +21,16 @@ if (!["builder", "reviewer", "intake", "revise"].includes(role)) fail("usage: gu
 const cfg = config();
 const ignore = cfg.surfaces.ignore ?? [];
 const changed = changedPaths().filter((p) => !matchesAny(p, ignore));
+// PR-28: a method fix (Phase PM) may change the method files; it may not touch the product, the
+// reviewer's rules or the ledgers. The workflow itself (from main) forces its human gate.
+let method = false;
+try { method = isMethodRow(parsePhases().rows.find((r) => r.task === process.env.TASK)); } catch { /* no ledger */ }
+const builderDeny = method ? (cfg.surfaces.builder_method?.deny ?? cfg.surfaces.builder.deny) : cfg.surfaces.builder.deny;
 const offenders =
   role === "builder"
-    ? changed.filter((p) => matchesAny(p, cfg.surfaces.builder.deny))
+    ? changed.filter((p) => matchesAny(p, builderDeny))
     : changed.filter((p) => !matchesAny(p, cfg.surfaces[role].allow));
+if (role === "builder" && method) console.log("guard:surfaces(builder): method fix (Phase PM): method files allowed, product paths denied");
 
 console.log(`guard:surfaces(${role}): ${changed.length} changed path(s)`);
 for (const p of changed) console.log(`  ${offenders.includes(p) ? "✗" : "·"} ${p}`);

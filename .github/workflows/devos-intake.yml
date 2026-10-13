@@ -6,6 +6,12 @@
 #              cannot be done. Comment "/devos intake" on the issue to run it again after answering.
 #              Merging the intake PR signs the OD, and devos-advance starts the new tasks.
 #
+#   Method fix (PR-28): open an issue with the "Dev OS method fix" form (label devos:method) when the
+#              automation itself misbehaves. The runner fetches the logs of the runs it links; the
+#              reviewer diagnoses the root cause and either opens an intake PR with the fix planned as a
+#              method task (Phase PM: Grok builds it, deep review, always your merge), asks for what is
+#              missing, or explains that the cause is a setting (devos-setup) or a product defect.
+#
 #   Revision:  comment "/devos revise <what to change>" on an open task PR (task/Tnn). The reviewer
 #              reissues that task's fence with your change as the next attempt's focus, and the
 #              cycle rebuilds and re-reviews it.
@@ -47,9 +53,9 @@ jobs:
       vars.DEVOS_PAUSED != 'true' && (
         github.event_name == 'workflow_dispatch' || (
           !github.event.issue.pull_request &&
-          contains(github.event.issue.labels.*.name, 'devos:request') &&
+          (contains(github.event.issue.labels.*.name, 'devos:request') || contains(github.event.issue.labels.*.name, 'devos:method')) &&
           (
-            (github.event_name == 'issues' && github.event.label.name == 'devos:request' &&
+            (github.event_name == 'issues' && (github.event.label.name == 'devos:request' || github.event.label.name == 'devos:method') &&
               contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)) ||
             (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/devos intake') &&
               contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
@@ -103,7 +109,10 @@ jobs:
           fi
           mkdir -p .devos
           # The request plus the human's own answers in the thread (owners, members, collaborators).
-          gh issue view "$ISSUE" --repo "$REPO" --json title,body,comments > .devos/issue.json
+          gh issue view "$ISSUE" --repo "$REPO" --json title,body,comments,labels > .devos/issue.json
+          # PR-28: a method fix is diagnosed from the logs of the runs it links.
+          MODE=$(node -e 'const i=require("./.devos/issue.json");console.log((i.labels||[]).some(l=>l.name==="devos:method")?"method":"intake")')
+          echo "MODE=$MODE" >> "$GITHUB_ENV"
           node -e '
             const i = JSON.parse(require("fs").readFileSync(".devos/issue.json", "utf8"));
             const trusted = ["OWNER", "MEMBER", "COLLABORATOR"];
@@ -114,6 +123,18 @@ jobs:
             const out = [`# ${i.title}`, "", i.body || "", ...(notes.length ? ["", "## The human'"'"'s answers and notes in the issue thread", "", ...notes.map((n) => `- ${n.replace(/\n/g, "\n  ")}`)] : [])];
             require("fs").writeFileSync(".devos/request.md", out.join("\n") + "\n");'
           wc -l .devos/request.md
+          if [ "$MODE" = "method" ]; then
+            mkdir -p .devos/runlogs
+            for id in $(grep -oE 'actions/runs/[0-9]+' .devos/request.md | sed 's#.*/##' | sort -u | head -n 5); do
+              gh run view "$id" --repo "$REPO" --log-failed 2>/dev/null | tail -n 400 > ".devos/runlogs/$id.log" || true
+              gh run view "$id" --repo "$REPO" --json name,displayTitle,conclusion,event,headBranch,createdAt,url,jobs \
+                --jq '{name,displayTitle,conclusion,event,headBranch,createdAt,url,failed:[.jobs[]|select(.conclusion=="failure")|{name,steps:[.steps[]|select(.conclusion=="failure")|.name]}]}' \
+                > ".devos/runlogs/$id.json" 2>/dev/null || true
+              echo "run $id: $(wc -l < ".devos/runlogs/$id.log") log lines"
+            done
+            gh run list --repo "$REPO" --status failure --limit 10 \
+              --json databaseId,workflowName,displayTitle,headBranch,createdAt,url > .devos/runlogs/recent-failures.json || true
+          fi
       - name: Reviewer — plan the request
         env:
           OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -128,8 +149,9 @@ jobs:
             const r = require("./devos.config.json").reviewer;
             const small = /How big is it\?\s*\n+\s*Small change/i.test(require("fs").readFileSync(".devos/request.md", "utf8"));
             console.log(small ? (r.intake_effort_small || "high") : (r.intake_effort || "xhigh"));')
-          echo "intake: $MODEL at effort $EFFORT (resume: $RESUME)"
-          DEVOS_INTAKE_RESUME="$RESUME" node scripts/devos/render-prompt.mjs intake - - --out .devos/intake-prompt.md
+          if [ "$MODE" = "method" ]; then EFFORT=$(node -e 'console.log(require("./devos.config.json").reviewer.method_effort || "high")'); fi
+          echo "$MODE: $MODEL at effort $EFFORT (resume: $RESUME)"
+          DEVOS_INTAKE_RESUME="$RESUME" node scripts/devos/render-prompt.mjs "$MODE" - - --out .devos/intake-prompt.md
           set +e
           claude -p "$(cat .devos/intake-prompt.md)" --model "$MODEL" --effort "$EFFORT" --output-format json \
             --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 120 \
@@ -165,7 +187,8 @@ jobs:
             fs.writeFileSync(".devos/decision", d);
             const q=(s.questions||[]).map((x,i)=>`${i+1}. ${x}`).join("\n");
             fs.writeFileSync(".devos/intake-comment.md", (
-              d==="accept" ? `**Accepted.** ${s.summary}\n\nDraft ${s.od||"OD"} and tasks ${(s.tasks||[]).join(", ")} are in the intake PR. Merging it signs the decision and starts the work.`
+              d==="accept" && process.env.MODE==="method" ? `**Diagnosed; the fix is planned.** ${s.summary}\n\nThe diagnosis (\`docs/requests/issue-${process.env.ISSUE}.md\`) and method task ${(s.tasks||[]).join(", ")} are in the intake PR. Merging it starts the fix: Grok builds it, the reviewer checks every changed line, and the fix waits for your merge before anything changes in the automation.`
+              : d==="accept" ? `**Accepted.** ${s.summary}\n\nDraft ${s.od||"OD"} and tasks ${(s.tasks||[]).join(", ")} are in the intake PR. Merging it signs the decision and starts the work.`
               : d==="needs-info" ? `**Needs your answers before planning.** ${s.summary||""}\n\n${q}\n\nAnswer in a comment, then comment \`/devos intake\` to run it again.`
               : d==="reject" ? `**Cannot be done as asked.** ${s.summary}`
               : d==="limit" ? "Claude hit a usage limit while planning this. The partial plan is kept on the intake branch and the planning resumes by itself after the reset (time below). Remove the `devos:quota-wait` label to cancel that."
@@ -199,8 +222,14 @@ jobs:
             gh label create "devos:intake" --color 1d76db --force --repo "$REPO" >/dev/null
             gh label create "devos" --color 0e8a16 --force --repo "$REPO" >/dev/null
             if ! gh pr view "$BR" --repo "$REPO" --json number >/dev/null 2>&1; then
-              gh pr create --repo "$REPO" --base main --head "$BR" --title "Intake #$ISSUE: $TITLE" \
-                --body-file .devos/intake-comment.md --label devos --label "devos:intake"
+              if [ "$MODE" = "method" ]; then
+                gh label create "devos:method" --color 5319e7 --force --repo "$REPO" >/dev/null
+                gh pr create --repo "$REPO" --base main --head "$BR" --title "Method fix #$ISSUE: $TITLE" \
+                  --body-file .devos/intake-comment.md --label devos --label "devos:intake" --label "devos:method"
+              else
+                gh pr create --repo "$REPO" --base main --head "$BR" --title "Intake #$ISSUE: $TITLE" \
+                  --body-file .devos/intake-comment.md --label devos --label "devos:intake"
+              fi
             fi
             gh api "repos/$REPO/statuses/$(git rev-parse HEAD)" -f state=success -f context=devos/verdict \
               -f description="Intake plan: merging signs the drafted OD" >/dev/null || true

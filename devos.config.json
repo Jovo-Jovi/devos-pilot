@@ -36,6 +36,7 @@
     "gate_effort": "high",
     "intake_effort": "high",
     "intake_effort_small": "medium",
+    "method_effort": "high",
     "fallback_model": "claude-sonnet-5-5",
     "model_note": "Official Claude ids (claude-opus-5-5, claude-sonnet-5-5). Opus 5.5 and Sonnet 5.5 default to medium effort in Claude Code, so the runner always passes --effort. --fallback-model only applies when the primary is overloaded or unavailable, never on usage limits.",
     "review_note": "PR-22, evidence-first review: the builder does the work and proves it, the runner runs every check and writes .devos/evidence.md, and the reviewer judges that evidence. scripts/devos/review-mode.mjs picks the mode after the build: light (risk 1-2, nothing critical touched) or deep (risk 3, a gate, or a deep_paths file in the diff). A retry raises the effort one step.",
@@ -109,6 +110,31 @@
         "docs/method/FULLSTACK_MODULE.md"
       ]
     },
+    "builder_method": {
+      "$comment": "PR-28: a method fix (Phase PM) may change workflows, runner scripts, guards, prompts and this config; never the product, the reviewer's own rules or the ledgers. The workflow from main forces the deep review and the human gate.",
+      "deny": [
+        "src/**",
+        "content/**",
+        "supabase/**",
+        "e2e/**",
+        "public/**",
+        "firebase/**",
+        "firestore.rules",
+        "firebase.json",
+        "CLAUDE.md",
+        ".claude/**",
+        "docs/fences/**",
+        "docs/reviews/**",
+        "docs/DECISIONS.md",
+        "docs/SCOPE.md",
+        "docs/design/**",
+        "docs/requests/**",
+        ".cursor/cli.json",
+        ".cursor/hooks.json",
+        ".cursor/hooks/**",
+        "vercel.json"
+      ]
+    },
     "reviewer": {
       "allow": [
         "docs/reviews/**",
@@ -133,7 +159,8 @@
         "docs/adr/**",
         "docs/DATA_MODEL.md",
         "docs/PROTECTION_MODEL.md",
-        "docs/PRODUCT_BRIEF.md"
+        "docs/PRODUCT_BRIEF.md",
+        "docs/setup-items.json"
       ]
     },
     "revise": {

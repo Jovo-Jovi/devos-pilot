@@ -1,0 +1,64 @@
+# Setup check (PR-27): what only the human can add outside the repository, kept in one issue.
+#
+# Runs on every push to main, when devos-resume finds the issue open (every two hours), when a run
+# stops for lack of a setting (scripts/devos/setup-issue.mjs wait), and when an owner, member or
+# collaborator comments `/devos setup` on the issue or on a waiting PR.
+#
+# It checks NAMES only: GitHub secrets and variables (from toJSON, never printed) and the app's
+# Vercel Production variables (Vercel API). When something is missing it opens or updates the issue
+# "Dev OS: setup needed" with the exact steps. When everything is in place it closes the issue,
+# resumes every run that waited for it, and re-runs a production deploy that failed.
+name: devos-setup
+
+on:
+  push:
+    branches: [main]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: devos-setup
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    if: >-
+      vars.DEVOS_PAUSED != 'true' && (
+        github.event_name != 'issue_comment' || (
+          startsWith(github.event.comment.body, '/devos setup') &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check names (never values)
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: node scripts/devos/setup-check.mjs
+      - name: Update or close the issue; resume what waited
+        env:
+          GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
+          REPO: ${{ github.repository }}
+          CONFIRMED: ${{ github.event_name == 'issue_comment' && 'true' || 'false' }}
+        run: |
+          if [ "$CONFIRMED" = "true" ]; then
+            node scripts/devos/setup-issue.mjs sync --confirmed
+          else
+            node scripts/devos/setup-issue.mjs sync
+          fi

@@ -384,3 +384,39 @@ keys, read it from the public URL, delete it) → database backup and migrations
 Firestore seed → app → smoke test. Any failure stops before the app moves and says which setting to
 fix. A task that changes the Firestore rules stops at your gate, like a migration.
 
+## 14. Missing settings and method fixes (PR-27, PR-28)
+
+### 14.1 The setup issue
+You never have to guess what is missing. The workflow `devos-setup` checks, by name only, every
+secret, variable and Vercel Production variable the project needs (`devos/setup.json`, plus
+`docs/setup-items.json` for product-specific ones that intake adds), and keeps one issue,
+**"Dev OS: setup needed"**, with the exact steps for each missing one. GitHub emails you when it is
+opened or gets a comment about a new need.
+
+- **Who fixes what.** Inside the repository (a script, a config file, an environment name in the
+  code): Grok, through a failed review and a retry. Outside it (a key, a variable, a token
+  permission, an account or a dashboard setting): you, with the steps in the issue.
+- **Nothing is lost while you add them.** A cycle that cannot run does not start; a deploy that lacks a
+  setting stops before anything moves; a review that finds only an outside cause stops without
+  spending an attempt (label `devos:setup-wait`).
+- **It resumes by itself.** After you add what is listed, within two hours (or at once if you
+  comment `/devos setup` on the issue) the runner closes the issue, restarts every waiting run and
+  re-runs a production deploy that failed. A cause the runner cannot see by name (a token's
+  permission, a dashboard setting) waits for your `/devos setup`.
+
+### 14.2 Method fixes: when the automation itself misbehaves
+Open **New issue → Dev OS method fix**, say what you saw, and paste the links of the runs or PRs.
+1. The runner fetches those runs' logs; the reviewer (Opus) finds the root cause to the line and
+   opens a PR with the diagnosis and one method task (Phase `PM`). If the cause is a setting, it says
+   so instead; if it is the product's code, it tells you to use a change request or `/devos revise`.
+2. You merge that PR: the fix starts at once, before any product task.
+3. Grok changes only the method files the task names and proves the fix with a reproduction; the
+   reviewer reads every changed line. The workflow from main forces this deep review and your gate,
+   whatever the branch changed.
+4. You merge the fix: the task it unblocked restarts by itself.
+
+**One-time requirement:** a fix that changes a workflow file must be pushed with `DEVOS_PAT`, a
+fine-grained token for this repository with Read and write on Contents, Pull requests, Issues,
+Actions, Commit statuses and **Workflows** (GitHub's built-in token can never change workflows).
+The setup issue asks for it as soon as a method fix is planned.
+

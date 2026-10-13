@@ -78,6 +78,8 @@ jobs:
       reviewer_effort: ${{ steps.t.outputs.reviewer_effort }}
       reviewer_fallback: ${{ steps.t.outputs.reviewer_fallback }}
       held: ${{ steps.heavy.outputs.held }}
+      blocked: ${{ steps.setup.outputs.blocked }}
+      method: ${{ steps.t.outputs.method }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -89,9 +91,29 @@ jobs:
         run: node scripts/devos/next-task.mjs --task "${{ inputs.task }}" --attempt "${{ inputs.attempt }}" --revision "${{ inputs.revision }}"
       - if: steps.t.outputs.done == 'true'
         run: echo "::notice title=Dev OS::Every task in docs/PHASES.md is PASS. Nothing to run."
+      # PR-27: a run that cannot work (no builder or reviewer credential, no runner token for a method
+      # fix) does not start. The setup issue gets the steps, and this run resumes when they are done.
+      - name: Settings the cycle needs (PR-27)
+        id: setup
+        if: steps.t.outputs.done == 'false'
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if node scripts/devos/setup-check.mjs --for cycle > .setup-check.log 2>&1; then
+            echo "blocked=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          cat .setup-check.log
+          echo "blocked=true" >> "$GITHUB_OUTPUT"
+          missing=$(node -e 'console.log(require("./.devos/setup-result.json").missing_required.join(", "))')
+          node scripts/devos/setup-issue.mjs wait --task "${{ steps.t.outputs.task }}" --attempt "${{ steps.t.outputs.attempt }}" \
+            --review-only "${{ inputs.review_only && 'true' || 'false' }}" --reason "the cycle needs settings that are missing ($missing)"
+          echo "::warning title=Dev OS::${{ steps.t.outputs.task }} did not start: missing settings ($missing). See the 'Dev OS: setup needed' issue."
       - name: Heavy-run notice, or hold (PR-20)
         id: heavy
-        if: steps.t.outputs.done == 'false'
+        if: steps.t.outputs.done == 'false' && steps.setup.outputs.blocked != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           DEVOS_HEAVY: ${{ vars.DEVOS_HEAVY }}
@@ -105,7 +127,7 @@ jobs:
 
   cycle:
     needs: resolve
-    if: needs.resolve.outputs.done == 'false' && needs.resolve.outputs.held != 'true'
+    if: needs.resolve.outputs.done == 'false' && needs.resolve.outputs.held != 'true' && needs.resolve.outputs.blocked != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     outputs:
@@ -125,6 +147,7 @@ jobs:
       BR: ${{ needs.resolve.outputs.branch }}
       REPO: ${{ github.repository }}
       REVIEW_ONLY: ${{ inputs.review_only && 'true' || 'false' }}
+      METHOD: ${{ needs.resolve.outputs.method }}
     steps:
       # The agents never see a git credential: checkout keeps none, and only the push and gh
       # steps below receive a token (PR-04).
@@ -237,6 +260,20 @@ jobs:
         if: env.REVIEW_ONLY != 'true'
         run: node scripts/devos/guard-surfaces.mjs builder
 
+      # PR-28: decided here, in the workflow from main, so nothing the builder edits on the branch
+      # (a guard, a script, the config) can change it. A product task never changes the method.
+      - name: Guard — method files (from main's workflow)
+        if: env.REVIEW_ONLY != 'true'
+        run: |
+          changed=$( { git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u \
+            | grep -E '^(\.github/|scripts/devos/|scripts/guards/|devos/|devos\.config\.json$|CLAUDE\.md$|\.claude/|\.cursor/(rules|hooks|cli))' || true)
+          [ -z "$changed" ] && exit 0
+          echo "Method files changed:"; echo "$changed"
+          if [ "$METHOD" != "true" ]; then
+            echo "::error title=Dev OS::$TASK is a product task, but the builder changed method files. Nothing is pushed."
+            exit 1
+          fi
+
       - name: Commit and push the builder's work, write runner evidence
         env:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
@@ -247,7 +284,16 @@ jobs:
             git add -A
             git commit --allow-empty -m "$TASK a$ATTEMPT: builder (${{ steps.bm.outputs.model }}, effort ${{ steps.bm.outputs.effort }}, fast ${{ steps.bm.outputs.fast }})"
             bash scripts/devos/sync-main.sh "$REMOTE"
-            git push "$REMOTE" "HEAD:refs/heads/$BR"
+            if ! git push "$REMOTE" "HEAD:refs/heads/$BR" 2> .devos/push.err; then
+              cat .devos/push.err
+              # GitHub refuses workflow-file changes from a token without the Workflows permission (PR-27).
+              grep -qiE "workflow" .devos/push.err && echo "the runner token cannot push workflow changes: DEVOS_PAT needs the Workflows permission (Read and write)" > .devos/setup-missing
+              exit 1
+            fi
+          fi
+          # PR-28: a method fix always gets the deep review and stops at the human gate.
+          if git diff --name-only origin/main...HEAD | grep -qE '^(\.github/|scripts/devos/|scripts/guards/|devos/|devos\.config\.json$|CLAUDE\.md$|\.claude/|\.cursor/(rules|hooks|cli))'; then
+            echo "METHOD_CHANGE=1" >> "$GITHUB_ENV"
           fi
           LOCAL=$(git rev-parse HEAD)
           REMOTE_SHA=$(git ls-remote "$REMOTE" "refs/heads/$BR" | cut -f1)
@@ -272,7 +318,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
         run: |
-          for l in "devos:0e8a16" "risk-1:c5def5" "risk-2:fbca04" "risk-3:d93f0b" "devos:human-gate:5319e7" "devos:halted:b60205" "devos:auto-merged:0e8a16" "devos:quota-wait:fbca04"; do
+          for l in "devos:0e8a16" "risk-1:c5def5" "risk-2:fbca04" "risk-3:d93f0b" "devos:human-gate:5319e7" "devos:halted:b60205" "devos:auto-merged:0e8a16" "devos:quota-wait:fbca04" "devos:setup-wait:fbca04" "devos:method:5319e7"; do
             gh label create "${l%:*}" --color "${l##*:}" --force --repo "$REPO" >/dev/null
           done
           # Use the OPEN PR for this branch only. A PR merged early by hand must not be reused (PR-13).
@@ -284,6 +330,7 @@ jobs:
               --label devos --label "risk-$RISK" || echo "::notice::No PR yet (nothing differs from main); it is opened after the review commit."
             PRN=$(gh pr list --repo "$REPO" --head "$BR" --state open --json number --jq '.[0].number // empty')
           fi
+          if [ -n "$PRN" ] && [ "$METHOD" = "true" ]; then gh pr edit "$PRN" --repo "$REPO" --add-label "devos:method" >/dev/null || true; fi
           echo "PRN=$PRN" >> "$GITHUB_ENV"
           if [ -n "$PRN" ]; then
             gh pr edit "$PRN" --repo "$REPO" --remove-label "devos:halted" >/dev/null 2>&1 || true
@@ -411,6 +458,13 @@ jobs:
           [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
           [ -n "$OAUTH$APIKEY" ] || { echo "::error::set secret CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY"; exit 1; }
           for f in .devos/*.env; do [ -f "$f" ] && { set -a; . "$f"; set +a; }; done
+          # PR-28: a method fix is always a deep review by the gate model, chosen from main's config.
+          if [ -n "$METHOD_CHANGE" ]; then
+            MODEL=$(git show origin/main:devos.config.json | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>console.log(JSON.parse(s).reviewer.gate_model))')
+            EFFORT=high; TURNS=120
+            export DEVOS_REVIEW_MODE=deep DEVOS_REVIEW_REASONS="method fix: it changes the automation itself (PR-28)"
+            echo "method fix: deep review forced ($MODEL, effort $EFFORT, $TURNS turns)"
+          fi
           node scripts/devos/render-prompt.mjs reviewer "$TASK" "$ATTEMPT" --out .devos/reviewer-prompt.md
           set +e
           ( t0=$(date +%s); while sleep 60; do
@@ -500,6 +554,11 @@ jobs:
           NEXT_ATTEMPT: ${{ steps.v.outputs.next_attempt }}
         run: |
           ACTION="${ACTION_OVERRIDE:-$ACTION}"
+          # PR-28: whatever the branch's own scripts decided, a change to the method waits for the human.
+          if [ -n "$METHOD_CHANGE" ] && [ "$ACTION" = "merge" ]; then
+            ACTION=human_gate
+            echo "Method files changed: the human gate is forced by the workflow from main."
+          fi
           case "$ACTION" in
             merge)
               gh pr edit "$PRN" --repo "$REPO" --add-label "devos:auto-merged"
@@ -520,6 +579,12 @@ jobs:
               gh pr edit "$PRN" --repo "$REPO" --add-label "devos:halted"
               gh workflow run devos-doctor.yml --repo "$REPO" --ref main -f pr="$PRN" || true
               echo "::warning title=Dev OS::$TASK halted. A human decision is needed (see the PR comment)." ;;
+            setup_wait)
+              # PR-27: the cause is outside the repository. No Grok retry; the human gets the steps in the
+              # verdict and the setup issue, and this attempt is re-reviewed after `/devos setup`.
+              node scripts/devos/setup-issue.mjs wait --task "$TASK" --attempt "$ATTEMPT" --review-only true --manual \
+                --reason "the review found a setting outside the repository missing; the steps are in the verdict on the PR"
+              echo "::warning title=Dev OS::$TASK waits for a setting outside the repository (see the PR and the setup issue)." ;;
             *) echo "::error::unknown action '$ACTION'"; exit 1 ;;
           esac
 
@@ -549,6 +614,11 @@ jobs:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
         run: |
           echo "::error title=Dev OS::The cycle stopped on a runner failure (a guard, a missing secret or fence, or a push). Nothing was merged."
+          if [ -f .devos/setup-missing ]; then
+            # PR-27: a setting only the human can fix; record it so the attempt resumes after `/devos setup`.
+            node scripts/devos/setup-issue.mjs wait --task "$TASK" --attempt "$ATTEMPT" --review-only false --manual --reason "$(cat .devos/setup-missing)" || true
+            exit 0
+          fi
           gh pr edit "${PRN:-$BR}" --repo "$REPO" --add-label "devos:halted" 2>/dev/null || true
           gh pr comment "${PRN:-$BR}" --repo "$REPO" --body "Dev OS runner stopped on a failure in run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Nothing was merged. Fix the cause, then re-run devos-cycle with task=$TASK attempt=$ATTEMPT." 2>/dev/null || true
           [ -n "$PRN" ] && gh workflow run devos-doctor.yml --repo "$REPO" --ref main -f pr="$PRN" 2>/dev/null || true

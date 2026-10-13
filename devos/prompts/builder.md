@@ -15,6 +15,13 @@ Rules for this run:
   task if you do.
 - If the task changes anything visible, follow the `devos-compose-ui` skill: compose the approved
   design in `docs/DESIGN_SYSTEM.md` and `docs/design/`, never improvise a look.
+- **Method fix** (the fence has `- Surface: method`, PR-28): change only the method files the fence
+  names (workflows, runner scripts, guards, prompts, config) and add the precedent row it describes.
+  Never touch product code. Prove the fix with the reproduction the fence asks for. Every other task:
+  never touch a method file (the runner stops the task if you do).
+- A missing secret, account or dashboard setting is not yours to fix: report it in the report's
+  HALT section with its exact name. Configuration **inside** the repository (scripts, config files,
+  environment names, `.env.example`) is yours.
 - If the tree has `supabase/`, follow `.cursor/rules/70-supabase.mdc`. The local Supabase is running
   and its names are in your environment; you have no access to any hosted project.
 - **You do the heavy work and you prove it (PR-22).** Implement, write the tests that prove each

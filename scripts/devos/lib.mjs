@@ -62,13 +62,22 @@ export function reviewerEffort(row, cfg = config()) {
   return cfg.reviewer.effort_by_risk?.[String(row.risk)] ?? "high";
 }
 
+/** PR-28: a method fix (Phase PM) repairs the automation itself. It runs on its own track: before
+ *  any open product task, and outside the product order, so a broken flow can be fixed while a
+ *  product task is stuck. It always ends at the human gate. */
+export const METHOD_PHASE = "PM";
+export const isMethodRow = (row) => row?.phase === METHOD_PHASE;
+
 export function nextOpenTask(rows) {
-  return rows.find((r) => !r.done) ?? null;
+  return rows.find((r) => !r.done && isMethodRow(r)) ?? rows.find((r) => !r.done) ?? null;
 }
 
+/** The task whose fence the reviewer writes after this one: product tasks chain to the next product
+ *  task; a method fix chains to nothing (its PASS always waits for the human). */
 export function taskAfter(rows, task) {
   const i = rows.findIndex((r) => r.task === task);
-  return i >= 0 && i + 1 < rows.length ? rows[i + 1] : null;
+  if (i < 0 || isMethodRow(rows[i])) return null;
+  return rows.slice(i + 1).find((r) => !isMethodRow(r)) ?? null;
 }
 
 export function updatePhasesRow(task, { done, verdict }) {

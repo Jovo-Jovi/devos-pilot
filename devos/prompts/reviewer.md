@@ -64,6 +64,18 @@ part: a red required check fails the verdict whatever you write (PR-08), and the
    **Personal data (a zone with `personal_data: true`):** apply the Personal-Data Protection gate
    against `docs/PROTECTION_MODEL.md`: purpose per field, database-enforced access, tested deletion
    and export, scheduled retention, no real person's data anywhere.
+   **Method fix (Phase PM, the fence has `- Surface: method`), PR-28:** the diff changes the
+   automation itself. Read every changed line. Confirm the root cause named in
+   `docs/requests/issue-*.md` is what the change fixes, that the reproduction in Done-when fails
+   before and passes after, that no non-waivable rule is weakened (Boundary gate, human gates, role
+   surfaces, secrets never in files, red overrides PASS), and that the precedent row was added. Its
+   PASS always waits for the human; write no next fence.
+   **Who fixes what (PR-27):** a cause **inside** the repository (a package script, a config file,
+   an environment name the code reads, `.env.example`, a test) is Grok's: FAIL with an attempt focus.
+   A cause **outside** it (a missing secret, variable, token permission, account or dashboard
+   setting) is not: classify it `SETUP`, reissue no fence, and put in the verdict's
+   `human_attention` the exact names and the steps to add them (where in GitHub, Vercel or the
+   provider's dashboard). The runner then waits for the human instead of spending a retry.
 4. Write `docs/reviews/{{TASK}}-a{{ATTEMPT}}.md`. **First line exactly** `VERDICT: PASS` or
    `VERDICT: FAIL`, then the Dev OS verdict format from `CLAUDE.md`. Keep it short: ledger lines cite
    evidence ("pack §Checks: test pass, 57 tests"), they do not repeat it. `Next prompt:` gives the
@@ -81,6 +93,8 @@ part: a red required check fails the verdict whatever you write (PR-08), and the
      `docs/fences/T01.md`, from `docs/PHASES.md` "Phase outlines". Check with Glob/Grep that every
      path, script and name it cites exists or is created by its own steps. Do not build or run it.
    - **PASS and no next task** → write nothing else.
+   - **FAIL classified `SETUP` only** → write nothing else; the attempt is re-reviewed once the human
+     has added what you named.
    - **FAIL and attempt < {{MAX_ATTEMPTS}}** → reissue the **whole** fence: overwrite
      `docs/fences/{{TASK}}.md`, increment `Fence version`, fix the defect if it was the fence's own
      (PR-09, say so), and add `### Attempt {{ATTEMPT_NEXT}} focus` listing exactly what must change.

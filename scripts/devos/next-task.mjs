@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Resolve which task the runner works on, and everything the workflow needs to know about it.
 // Usage: node scripts/devos/next-task.mjs [--task T01] [--attempt 1] [--revision true]
-import { parsePhases, nextOpenTask, isHumanGate, reviewerModel, reviewerEffort, taskAfter, config, emit, fail } from "./lib.mjs";
+import { parsePhases, nextOpenTask, isHumanGate, isMethodRow, reviewerModel, reviewerEffort, taskAfter, config, emit, fail } from "./lib.mjs";
 
 const arg = (name) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -27,8 +27,9 @@ if (!row) {
 }
 if (row.done) fail(`task ${row.task} is already ticked PASS in docs/PHASES.md`);
 
-// Previous rows must be done: one task at a time, in order (Dev OS §7).
-const earlierOpen = rows.slice(0, rows.indexOf(row)).find((r) => !r.done);
+// Previous rows must be done: one task at a time, in order (Dev OS §7). Method fixes (Phase PM,
+// PR-28) are their own track: they run whatever product task is open, and never block one.
+const earlierOpen = isMethodRow(row) ? null : rows.slice(0, rows.indexOf(row)).find((r) => !r.done && !isMethodRow(r));
 if (earlierOpen) fail(`task ${row.task} cannot start: ${earlierOpen.task} is not PASS yet`);
 
 const next = taskAfter(rows, row.task);
@@ -36,6 +37,8 @@ emit({
   done: "false",
   task: row.task,
   name: row.name,
+  phase: row.phase,
+  method: isMethodRow(row) ? "true" : "false",
   risk: row.risk,
   gate: row.gate,
   human_gate: isHumanGate(row) ? "true" : "false",

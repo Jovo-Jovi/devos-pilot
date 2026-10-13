@@ -31,10 +31,33 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
-  deploy:
+  # Production moves at the gates the human signs. With DEVOS_PAT set, the runner's own auto-merges
+  # (label devos:auto-merged) are pushes that start this workflow too; they are skipped here, so
+  # adding the token for method fixes (PR-28) does not change when production deploys.
+  which:
     if: vars.DEVOS_VERCEL == 'true' && vars.DEVOS_PAUSED != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.w.outputs.skip }}
+    steps:
+      - id: w
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          skip=false
+          if [ "${{ github.event_name }}" = "push" ]; then
+            labels=$(gh api "repos/$REPO/commits/${{ github.sha }}/pulls" --jq '[.[].labels[].name] | join(",")' 2>/dev/null || echo "")
+            case ",$labels," in *",devos:auto-merged,"*) skip=true; echo "::notice title=Dev OS::Runner auto-merge: production waits for the next gate you sign." ;; esac
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: which
+    if: needs.which.outputs.skip != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -50,6 +73,15 @@ jobs:
         with:
           node-version: 22
       - run: npm install -g pnpm@10
+      # PR-27: every setting the deploy needs, checked by name before anything moves. If one is missing
+      # the deploy stops here with the full list; the setup issue has the steps, and once they are done
+      # devos-setup re-runs this deploy by itself.
+      - name: Settings the deploy needs (PR-27)
+        if: (inputs.target || 'production') == 'production'
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: node scripts/devos/setup-check.mjs --for deploy
       - name: Gate check — the guards must pass on what ships
         run: |
           pnpm install --frozen-lockfile

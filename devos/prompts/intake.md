@@ -80,6 +80,15 @@ Law 151 of 2020) and state in the OD that the repository must be private before 
 - In the OD, list the human's setup steps by name only (`SETUP.md` §13): accounts, bucket and public
   access, Firestore database, service accounts, GitHub secrets and variables, Vercel env.
 
+## Settings outside the repository (PR-27)
+
+Whenever the request needs something only the human can create (an account, an outside API key, a
+Vercel variable the app reads, a dashboard setting) that `devos/setup.json` does not already list,
+add it to `docs/setup-items.json` (create it with `{ "items": [ ... ] }` in the same format: id,
+title, kind secret|variable|vercel, names, when, blocks, steps). `devos-setup` then shows the human
+exactly what to add, before the task that needs it runs, and resumes waiting work afterwards.
+Names only: never a value.
+
 ## Rules
 
 - Change only `docs/DECISIONS.md`, `docs/SCOPE.md`, `docs/PHASES.md`, `docs/fences/**`,

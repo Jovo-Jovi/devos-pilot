@@ -12,6 +12,9 @@
 //   halt        FAIL at max attempts, or the reviewer produced no usable verdict
 //   quota_wait  the reviewer hit a usage/rate limit: nothing recorded, same attempt, review-only
 //               resume by devos-resume (PR-12)
+//   setup_wait  FAIL whose only cause is outside the repository (classification SETUP: a secret, a
+//               variable, an account or dashboard setting). Grok cannot fix it, so no retry is spent:
+//               the human gets the steps, and the same attempt is re-reviewed once it is in place (PR-27)
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { P, config, parsePhases, isHumanGate, taskAfter, updatePhasesRow, changedPaths, emit, fail } from "./lib.mjs";
@@ -172,6 +175,17 @@ if (verdict === "PASS") {
     summary: structured.summary,
     fence: structured.fence_written,
     human: gate ? `${why}: review the PR${schema.length ? " and every migration or rules change in it" : ""} and merge it to sign off. Merging restarts the cycle.` : structured.human_attention,
+  });
+}
+
+// PR-27: a failure caused only by something outside the repository is not Grok's to fix. Checks that
+// failed on their own (red) are code until the reviewer says otherwise, so SETUP must be the only class.
+const cls = `${/^Classification of non-PASS items:\s*(.+)$/m.exec(reviewText)?.[1] ?? ""} ${(structured.classification ?? []).join(" ")}`;
+if (/\bSETUP\b/.test(cls) && !/HARD FAILURE|FENCE DEFECT|DOC CORRECTION/.test(cls)) {
+  notes.push("classification SETUP: the cause is outside the repository; no retry spent");
+  finish("FAIL", "setup_wait", {
+    summary: structured.summary,
+    human: structured.human_attention ?? "A setting outside the repository is missing; the review names it.",
   });
 }
 

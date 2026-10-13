@@ -21,6 +21,15 @@ jobs:
     if: vars.DEVOS_PAUSED != 'true'
     runs-on: ubuntu-latest
     steps:
+      # PR-27: while the setup issue is open, check again every two hours, so the work resumes soon
+      # after the human adds what was missing (adding a secret starts no workflow by itself).
+      - name: Re-check the setup issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          n=$(gh issue list --repo "$REPO" --state open --label "devos:setup" --json number --jq '.[0].number // empty')
+          if [ -n "$n" ]; then gh workflow run devos-setup.yml --repo "$REPO" --ref main; echo "setup issue #$n is open: devos-setup dispatched"; fi
       - name: Re-dispatch the oldest parked task
         env:
           GH_TOKEN: ${{ github.token }}

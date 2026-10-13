@@ -1,0 +1,28 @@
+name: Dev OS method fix
+description: Something in the automation itself went wrong (a workflow, a check, a merge, a resume). The reviewer diagnoses it from the run logs and plans the fix; Grok builds it; you approve it.
+title: "Method fix: "
+labels: ["devos:method"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What went wrong
+      description: In plain words, what you saw. Paste the error or the message you did not understand.
+    validations:
+      required: true
+  - type: textarea
+    id: runs
+    attributes:
+      label: Links to the runs or PRs
+      description: Paste the GitHub Actions run links (…/actions/runs/123…) or PR links. The runner reads their logs for the reviewer; without a link it looks at the latest failed runs.
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Is the flow stuck?
+      description: A method fix always runs before the next product task.
+      options: ["Yes, nothing moves until this is fixed", "No, but it keeps happening", "No, it happened once"]
+      default: 0

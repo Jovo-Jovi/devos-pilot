@@ -92,9 +92,23 @@ Ledger: <Done-when id> — PASS/FAIL — <evidence, with the command>
 Acceptance ledger: <standard applied, and the evidence — or N/A>
 Boundary check: <PASS | FAIL | N/A — evidence>
 Carry-forwards logged: <described rows with owners — or none>
-Classification of non-PASS items: HARD FAILURE | DOC CORRECTION | CARRY-FORWARD | FENCE DEFECT
+Classification of non-PASS items: HARD FAILURE | DOC CORRECTION | CARRY-FORWARD | FENCE DEFECT | SETUP
 Next prompt: <path of the fence written in this run, or none>
 ```
+
+`SETUP` (PR-27) means the only cause is outside the repository (a secret, a variable, a token
+permission, an account or dashboard setting): Grok cannot fix it, so no fence is reissued; name the
+settings and the steps in `human_attention`. Anything inside the repository stays Grok's to fix.
+
+## Setup check and method fixes (PR-27, PR-28)
+
+- `devos-setup` keeps the issue "Dev OS: setup needed" (names only, never values) and resumes waiting
+  work when the human has added what was missing. Product-specific settings are declared by intake
+  in `docs/setup-items.json` (format of `devos/setup.json`).
+- A "Dev OS method fix" issue is diagnosed by the intake run in method mode (`devos/prompts/method.md`)
+  from the logs of the linked runs, and planned as a Phase `PM` task. Grok builds it with the method
+  surface (`surfaces.builder_method`); you review every changed line; the workflow from main forces
+  the deep review and the human gate. A product task that changes a method file is stopped.
 
 ## Evidence-first review (PR-22)
 

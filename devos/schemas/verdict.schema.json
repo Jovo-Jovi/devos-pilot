@@ -9,7 +9,7 @@
     "review_file": { "type": "string", "description": "docs/reviews/Tnn-aN.md" },
     "classification": {
       "type": "array",
-      "items": { "type": "string", "enum": ["HARD FAILURE", "DOC CORRECTION", "CARRY-FORWARD", "FENCE DEFECT", "NONE"] }
+      "items": { "type": "string", "enum": ["HARD FAILURE", "DOC CORRECTION", "CARRY-FORWARD", "FENCE DEFECT", "SETUP", "NONE"] }
     },
     "fence_defect": { "type": "boolean", "description": "true when a FAIL or HALT was caused by the fence itself (PR-09)" },
     "fence_written": {
