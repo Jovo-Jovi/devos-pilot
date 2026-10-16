@@ -33,6 +33,8 @@ async function shot(
 ) {
   await page.setViewportSize({ width, height });
   await page.goto(route, { waitUntil: "load" });
+  await expect(page.locator("ol.book-types li.book-type")).toHaveCount(bookTypes.length);
+  await expect(page.locator("ol.book-types .cover").first()).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   const path = join(process.cwd(), `.devos/screens/${name}.png`);
   mkdirSync(dirname(path), { recursive: true });
