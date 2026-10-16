@@ -186,3 +186,9 @@ The storage module is on. `src/lib/r2/` holds a server-only S3 client, cover val
 ## 2026-10-16 — T23 covers on the public page, attempt 1 (builder, Grok 4.7)
 
 The public page `/[locale]/book-types` shows a cover from the bucket when a `book_type_covers` row exists, and the placeholder otherwise. `img-src` gains the origin of `R2_PUBLIC_BASE_URL`; every other directive, including `connect-src 'self'`, stays as it was. `pnpm check` exits 0 and `pnpm e2e` passes 61. Awaiting the deep review; a PASS stops at the human gate.
+
+---
+
+## 2026-10-16 — T24 staff cover editor, attempt 1 (builder, Grok 4.7)
+
+Staff at AAL2 open `/[locale]/staff/book-types`, see every book type with its cover or the placeholder, and upload, replace or remove a cover. Each upload is checked and re-encoded through `src/lib/r2/`, and each successful write calls `updateTag("book-type-covers")`. The staff home links to the page. `connect-src` stays `'self'`. `pnpm check` exits 0 (115 tests) and `pnpm e2e` passes 66. Attempt 2 under fence v2 verified the tree after the reviewer fixed D6's grep (PR-09).

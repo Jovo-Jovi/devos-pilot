@@ -58,6 +58,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   experimental: {
     globalNotFound: true,
+    serverActions: {
+      bodySizeLimit: "7mb",
+    },
   },
   async redirects() {
     return [

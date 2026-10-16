@@ -253,6 +253,14 @@
   margin: 0;
 }
 
+.coverColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
 .closedDay {
   margin: 0;
   color: var(--color-closed);

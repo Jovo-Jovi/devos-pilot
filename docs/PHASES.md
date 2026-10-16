@@ -32,7 +32,7 @@ The runner reads the table below, and `guard:phases` checks it.
 | T21 | P06 | J4 | Migration: book_type_covers link table with RLS and pgTAP proof | 3 | — | [x] | PASS a1 — docs/reviews/T21-a1.md |
 | T22 | P06 | J4 | Storage module: server-only bucket client, image validation and re-encoding, storage tests | 3 | — | [x] | PASS a1 — docs/reviews/T22-a1.md |
 | T23 | P06 | J5 | Public page shows covers from the bucket; CSP img-src gains the bucket origin | 3 | — | [x] | PASS a3 — docs/reviews/T23-a3.md |
-| T24 | P06 | J6 | Staff cover editor: upload, replace, remove; staff home link | 3 | — | [ ] | — |
+| T24 | P06 | J6 | Staff cover editor: upload, replace, remove; staff home link | 3 | — | [x] | PASS a3 — docs/reviews/T24-a3.md |
 | T25 | P06 | J6 | Whole-flow end-to-end proof and production checklist | 2 | G-Book-types | [ ] | — |
 
 ## Phase outlines (the reviewer writes each fence from these)

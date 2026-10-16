@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P06 Book types and covers (J5) · **Last verdict:** T22 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P06 Book types and covers (J6) · **Last verdict:** T23 PASS a3 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -29,8 +29,9 @@
 | T20 | Public book-types page from Firestore, with the cover placeholder, linked from home | PASS a3 — docs/reviews/T20-a3.md |
 | T21 | Migration: book_type_covers link table with RLS and pgTAP proof | PASS a1 — docs/reviews/T21-a1.md (schema change signed by the human's merge) |
 | T22 | Storage module (R2): server-only bucket client, image validation and re-encoding, storage tests | PASS a1 — docs/reviews/T22-a1.md (storage keys signed by the human's merge) |
-| T23 | Public page shows covers from the bucket; CSP img-src gains the bucket origin | built — awaiting verdict |
+| T23 | Public page shows covers from the bucket; CSP img-src gains the bucket origin | PASS a3 — docs/reviews/T23-a3.md (headers signed by the human's merge) |
+| T24 | Staff cover editor: upload, replace, remove; staff home link | built — awaiting verdict |
 
 ## Next action
 
-T23 is built on `task/T23` and awaits the deep review (headers; a PASS stops at the human gate). The public book-types page shows each type's cover from the bucket, or the placeholder, and `img-src` includes the bucket origin. Next is T24, the staff cover editor.
+T24 is built on `task/T24` and awaits the deep review and the human gate (risk 3: staff writes). Next is T25.
