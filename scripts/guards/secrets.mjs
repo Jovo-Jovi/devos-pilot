@@ -24,11 +24,24 @@ const SKIP = [/^pnpm-lock\.yaml$/, /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|pdf|zip
 export default function secrets() {
   const files = repoFiles().filter((f) => !SKIP.some((s) => s.test(f)));
   const findings = scan(files, RULES, { skipComments: false });
-  // PR-32: no workflow hands every secret to a step, except the setup check (names only, no outside code).
-  for (const f of files.filter((x) => /^\.github\/workflows\/.+\.ya?ml$/.test(x) && !x.endsWith("devos-setup.yml"))) {
+  // PR-32: no workflow hands every secret to a step (GitHub holds such workflows as possibly malicious).
+  for (const f of files.filter((x) => /^\.github\/workflows\/.+\.ya?ml$/.test(x))) {
     read(f).split(/\r?\n/).forEach((line, i) => {
-      if (/toJSON\(\s*secrets\s*\)/.test(line) && !/^\s*#/.test(line)) findings.push(`${f}:${i + 1} — passes every secret to a step (toJSON(secrets)); pass only the names it needs`);
+      if (/toJSON\(\s*secrets\s*\)/.test(line) && !/^\s*#/.test(line)) findings.push(`${f}:${i + 1} — passes every secret to a step (toJSON(secrets)); pass presence flags for the names it needs`);
     });
+  }
+  // ...and each setup check is told about every secret it must check (devos/setup.json).
+  if (files.includes("devos/setup.json")) {
+    const items = JSON.parse(read("devos/setup.json")).items ?? [];
+    const want = { "devos-setup.yml": () => true, "devos-cycle.yml": (it) => it.blocks === "cycle", "devos-deploy.yml": (it) => it.blocks === "deploy" };
+    for (const [wf, pick] of Object.entries(want)) {
+      const f = `.github/workflows/${wf}`;
+      if (!files.includes(f)) continue;
+      const text = read(f);
+      for (const it of items.filter((x) => x.kind === "secret" && pick(x))) for (const n of it.names) {
+        if (!text.includes(`"${n}":"\${{ secrets.${n} != ''`)) findings.push(`${f} — its SECRETS_JSON presence list lacks ${n} (devos/setup.json item ${it.id})`);
+      }
+    }
   }
   return result(findings.length ? "FAIL" : "PASS", findings, `${files.length} files scanned`);
 }

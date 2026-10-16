@@ -196,7 +196,8 @@ jobs:
       - name: Supabase CLI (backend module, PR-17)
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned (PR-33): "latest" asks GitHub's API, which rate-limits shared runners.
+          version: ${{ vars.DEVOS_SUPABASE_CLI_VERSION || '2.120.0' }}
 
       - name: Check out the task branch (a reissue continues the same branch, PR-03)
         run: |

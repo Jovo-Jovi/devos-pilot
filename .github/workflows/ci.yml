@@ -31,7 +31,8 @@ jobs:
         if: hashFiles('supabase/config.toml') != ''
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned (PR-33): "latest" asks GitHub's API, which rate-limits shared runners.
+          version: ${{ vars.DEVOS_SUPABASE_CLI_VERSION || '2.120.0' }}
       - name: Firebase CLI and Java 21 (Firebase module, PR-26)
         if: hashFiles('firebase.json') != ''
         run: |
