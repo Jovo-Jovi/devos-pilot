@@ -168,3 +168,9 @@ The Firestore module is on. `firestore.rules` denies every client, proven by 10 
 ## 2026-10-16 — T20 public book-types page, attempt 2 (builder, Grok 4.7)
 
 The public page `/[locale]/book-types` lists the five seeded book types in sort order, each with the cover placeholder, and the home page links to it. The list is read on the server through the `book-types` cache tag. Attempt 2 fixes the two e2e locators from the attempt 1 review. `pnpm check` exits 0 and `pnpm e2e` passes 60. Awaiting verdict.
+
+---
+
+## 2026-10-16 — T21 book_type_covers migration, attempt 1 (builder, Grok 4.7)
+
+`public.book_type_covers` links a book type to its cover object key. Anonymous visitors can read every row; only staff at AAL2 can insert, update and delete, proven by 36 pgTAP assertions (`Files=3, Tests=99` with the earlier suites). The table holds nothing about a person, and nothing in the app reads it yet. `pnpm check` exits 0. Awaiting the deep review; a PASS stops at the human gate.

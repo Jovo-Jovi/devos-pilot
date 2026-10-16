@@ -23,7 +23,21 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "library_notices": {
+            "book_type_covers": {
+                  Row: {
+                    "book_type_id": string,"object_key": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "book_type_id": string,"object_key": string
+                  }
+                  Update: {
+                    "book_type_id"?: string,"object_key"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"library_notices": {
                   Row: {
                     "body_ar": string,"body_en": string,"id": string,"published_on": string,"status": string,"title_ar": string,"title_en": string
                   }
