@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P06 Book types and covers (J5) · **Last verdict:** T21 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P06 Book types and covers (J5) · **Last verdict:** T22 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -28,8 +28,9 @@
 | T19 | Firestore module: rules denying every client, rules tests, server-only reader, book-types seed | PASS a1 — docs/reviews/T19-a1.md (rules file reviewed at the human's merge) |
 | T20 | Public book-types page from Firestore, with the cover placeholder, linked from home | PASS a3 — docs/reviews/T20-a3.md |
 | T21 | Migration: book_type_covers link table with RLS and pgTAP proof | PASS a1 — docs/reviews/T21-a1.md (schema change signed by the human's merge) |
-| T22 | Storage module (R2): server-only bucket client, image validation and re-encoding, storage tests | built — awaiting verdict |
+| T22 | Storage module (R2): server-only bucket client, image validation and re-encoding, storage tests | PASS a1 — docs/reviews/T22-a1.md (storage keys signed by the human's merge) |
+| T23 | Public page shows covers from the bucket; CSP img-src gains the bucket origin | built — awaiting verdict |
 
 ## Next action
 
-T22 is built on `task/T22` and awaits the deep review. The storage module is server-only code in `src/lib/r2/`: the bucket client, cover-image validation and re-encoding, and the storage tests. Nothing visible changes, and no page imports it yet. This task is risk 3 (storage keys): a PASS stops at the human gate. Next is T23, covers on the public page.
+T23 is built on `task/T23` and awaits the deep review (headers; a PASS stops at the human gate). The public book-types page shows each type's cover from the bucket, or the placeholder, and `img-src` includes the bucket origin. Next is T24, the staff cover editor.

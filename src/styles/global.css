@@ -105,6 +105,7 @@ html[lang="en"] .notice :is(h2, h3) { word-spacing: normal; }
 html[lang="en"] .book-type h2 { word-spacing: normal; }
 .book-type p { margin: 0; color: var(--color-ink-muted); }
 .cover { display: block; inline-size: 4.5rem; aspect-ratio: 3 / 4; border-radius: var(--radius-stamp); border: 1px solid var(--color-line); overflow: hidden; background: var(--color-lapis-wash); }
+.cover img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }
 
 /* Footer */
 .site-footer { margin-block-start: var(--space-7); background: var(--color-surface); border-block-start: 1px solid var(--color-line); }

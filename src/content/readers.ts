@@ -1,6 +1,7 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { readBookTypes } from "@/lib/firebase/book-types";
+import { coverPublicUrl } from "@/lib/r2/objects";
 import { createPublicReadClient } from "@/lib/supabase/public";
 import type { BookType } from "./book-types";
 import { orderOpeningSlots } from "./order";
@@ -42,4 +43,19 @@ export async function readLibraryBookTypes(): Promise<BookType[]> {
   cacheTag("book-types");
   cacheLife("hours");
   return (await readBookTypes()).bookTypes;
+}
+
+/** DATA_MODEL §10: cover links, read at request time. A row whose type is absent is ignored by the page. */
+export async function readBookTypeCovers(): Promise<{ bookTypeId: string; coverUrl: string }[]> {
+  "use cache";
+  cacheTag("book-type-covers");
+  cacheLife("minutes");
+  const { data, error } = await createPublicReadClient()
+    .from("book_type_covers")
+    .select("book_type_id, object_key");
+  if (error) throw new Error(`public.book_type_covers: ${error.message}`);
+  return data.map((row) => ({
+    bookTypeId: row.book_type_id,
+    coverUrl: coverPublicUrl(row.object_key),
+  }));
 }

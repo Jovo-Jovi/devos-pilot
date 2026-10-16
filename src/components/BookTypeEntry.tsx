@@ -5,16 +5,18 @@ import { BookCover } from "./BookCover";
 export function BookTypeEntry({
   locale,
   bookType,
+  coverUrl,
 }: {
   locale: Locale;
   bookType: BookType;
+  coverUrl?: string;
 }) {
   const name = locale === "ar" ? bookType.nameAr : bookType.nameEn;
   const description =
     locale === "ar" ? bookType.descriptionAr : bookType.descriptionEn;
   return (
     <li className="book-type">
-      <BookCover />
+      <BookCover src={coverUrl} />
       <div>
         <h2>{name}</h2>
         <p>{description}</p>
