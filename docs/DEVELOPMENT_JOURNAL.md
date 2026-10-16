@@ -192,3 +192,9 @@ The public page `/[locale]/book-types` shows a cover from the bucket when a `boo
 ## 2026-10-16 — T24 staff cover editor, attempt 1 (builder, Grok 4.7)
 
 Staff at AAL2 open `/[locale]/staff/book-types`, see every book type with its cover or the placeholder, and upload, replace or remove a cover. Each upload is checked and re-encoded through `src/lib/r2/`, and each successful write calls `updateTag("book-type-covers")`. The staff home links to the page. `connect-src` stays `'self'`. `pnpm check` exits 0 (115 tests) and `pnpm e2e` passes 66. Attempt 2 under fence v2 verified the tree after the reviewer fixed D6's grep (PR-09).
+
+---
+
+## 2026-10-16 — T25 whole-flow end-to-end proof, attempt 1 (builder, Grok 4.7)
+
+`e2e/book-types-flow.spec.ts` runs the OD-11 flow against the local database, the local S3 store and the Firestore emulator, with no application change. The five seeded book types list in both locales; a staff member at AAL2 uploads, replaces and removes a science cover, and the public pages follow without a rebuild. The stored object is WebP at 1200×1800 with no EXIF. REST writes to `book_type_covers` are refused without the staff claim at AAL2. The six public routes stay cookieless, formless and free of a Firebase script. `pnpm check` exits 0 (115 tests) and `pnpm e2e` passes 72 twice. Awaiting the deep review; a PASS stops at the human gate `G-Book-types`.
