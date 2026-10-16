@@ -21,6 +21,17 @@ files, logs, reports or prompts.
 | `SUPABASE_SECRET_KEY` (service role) | **not** in Vercel (OD-10 §7); locally, the CLI's throwaway key in `.devos/supabase.env` | e2e tests only (invitations, test fixtures); no app code. `guard:data` fails any `src/` file that reads it outside a `server-only` module |
 | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `DEVOS_BACKUP_PASSPHRASE` | GitHub Actions secrets | `devos-deploy` only (PR-18) |
 
+**From OD-11 (book types and covers, DRAFT until the intake PR for issue #26 merges):**
+
+| Key or secret | Where it lives | Used by |
+|---|---|---|
+| `R2_ENDPOINT`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` | Vercel Production; GitHub secrets (deploy preflight); locally `.devos/r2.env` | server code in `src/lib/r2/`; `next.config.ts` reads only the origin of `R2_PUBLIC_BASE_URL` for `img-src` (§2b) |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (a token for this bucket only, Object Read & Write) | Vercel Production (Sensitive); GitHub secrets (deploy preflight); locally throwaway values | `server-only` modules in `src/lib/r2/` only, never under a `NEXT_PUBLIC_` name (`guard:services`) |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT` (`devos-runtime`, Cloud Datastore Viewer: read-only) | Vercel Production (the key Sensitive); locally none (the emulator needs no credential) | `server-only` modules in `src/lib/firebase/` only |
+| `FIREBASE_DEPLOY_SERVICE_ACCOUNT` (`devos-deploy`, Firebase Admin) | GitHub secret | `devos-deploy` only: rules, then the seed (PR-26) |
+
+No service-account file ever enters the tree (`guard:services`, `.gitignore`).
+
 ## 2. Header baseline (T02, risk 3)
 
 Set in `next.config.ts` `headers()` for every route (`source: "/:path*"`):
@@ -51,6 +62,19 @@ A second `headers()` entry, `source: "/:locale/staff/:path*"`, placed **after** 
 - **`img-src` already allows `data:`.** That covers the TOTP enrolment QR code that Supabase Auth
   returns as an SVG data URL.
 - **Every other §2 header applies unchanged** to the staff routes.
+
+## 2b. Cover images from the bucket (OD-11, lands at T23, risk 3)
+
+- **`img-src`.** In the §2 value, `img-src 'self' data:` becomes `img-src 'self' data: <origin>`,
+  where `<origin>` is `new URL(process.env.R2_PUBLIC_BASE_URL).origin`, read by `next.config.ts` at
+  build time. When the variable is unset or not a URL, the §2 value is unchanged. The staff CSP (§2a)
+  is derived from the baseline, so it gains the same origin. No other directive changes: `connect-src`
+  stays `'self'` (no browser upload), and no image optimizer host is added.
+- **Uploads (lands at T24).** Server actions accept request bodies up to the size set in
+  `next.config.ts` `experimental.serverActions.bodySizeLimit`, large enough for a 5 MB file and the form
+  around it; the action still refuses anything above 5,242,880 bytes (`DATA_MODEL.md` §11). Every
+  upload action checks the staff claim and AAL2 on the server before it reads the file.
+- **Metadata.** Every stored image is re-encoded without metadata (EXIF can carry GPS and device data).
 
 ## 3. Rate limiting, step-up, sessions, recovery
 
