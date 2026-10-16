@@ -701,13 +701,22 @@ jobs:
           REVIEW_ONLY: ${{ needs.cycle.outputs.park_review_only }}
           NOT_BEFORE: ${{ needs.cycle.outputs.park_not_before }}
           PR: ${{ needs.cycle.outputs.park_pr || needs.cycle.outputs.branch }}
+          IS_PRIVATE: ${{ github.event.repository.private }}
         run: |
           max_min=$(node -e 'console.log(require("./devos.config.json").resume?.inline_wait_max_minutes ?? 330)')
           now=$(date -u +%s)
           target=$(date -u -d "$NOT_BEFORE" +%s 2>/dev/null || echo $((now + 3600)))
           wait=$(( target - now ))
           if [ "$wait" -gt $(( max_min * 60 )) ]; then
-            echo "::notice title=Dev OS::$TASK resets at $NOT_BEFORE, beyond the ${max_min}-minute inline wait; devos-resume will pick it up."
+            # PR-31: a long wait is relayed by devos-wait (GitHub's schedule is best effort). On a private
+            # repository sleeping costs runner minutes, so resume.relay decides.
+            relay=$(node -e 'console.log(require("./devos.config.json").resume?.relay ?? "public")')
+            if [ "$relay" = "always" ] || { [ "$relay" = "public" ] && [ "$IS_PRIVATE" != "true" ]; }; then
+              gh workflow run devos-wait.yml --repo "$REPO" --ref main -f kind=task -f not_before="$NOT_BEFORE" -f task="$TASK" -f attempt="$ATTEMPT" -f review_only="$REVIEW_ONLY" -f pr="$PR"
+              echo "::notice title=Dev OS::$TASK resets at $NOT_BEFORE; devos-wait keeps waiting and resumes it then."
+            else
+              echo "::notice title=Dev OS::$TASK resets at $NOT_BEFORE; devos-resume (scheduled, best effort) picks it up, or run devos-resume by hand after that time."
+            fi
             exit 0
           fi
           if [ "$wait" -gt 0 ]; then

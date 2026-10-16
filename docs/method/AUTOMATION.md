@@ -68,6 +68,14 @@ problem or for a change in how the automation works → `devos-intake` in method
 task → your merge → the fix runs first, Grok builds, deep review forced, your gate forced →
 `devos-advance` restarts the task the fence's `Resume after merge` names.
 
+**Usage limits.** A run stopped by a limit is parked (label `devos:quota-wait`, a `devos-resume`
+or `devos-intake-resume` marker with the reset time). Waits up to `resume.inline_wait_max_minutes`
+are slept in the same workflow; longer ones go to `devos-wait`, which relays itself until the reset
+(`resume.relay`: on public repositories by default, where runner minutes are free); `devos-resume`
+is the scheduled backstop. A limit that states no reset time is retried after 60, 120, 240 …
+minutes (capped by `resume.max_backoff_minutes`), and a parked planning run keeps one wait comment
+on its issue, updated at each check (PR-31).
+
 **Revisions.** `/devos revise <what>` on a task PR → reissued fence → next attempt (may pass
 `max_attempts`).
 
@@ -83,6 +91,7 @@ task → your merge → the fix runs first, Grok builds, deep review forced, you
 | `devos-setup.yml` | push to main; `/devos setup`; dispatch | `setup` | the setup check and issue (PR-27) |
 | `devos-deploy.yml` | push to main; dispatch (production/preview) | `which`, `deploy` | production order (§2) |
 | `ci.yml` | push to main; dispatch | `checks` | the same checks on main (PRs are checked by the cycle, PR-25) |
+| `devos-wait.yml` | dispatch only (from the waiting jobs) | `wait` | long usage-limit waits: sleeps as long as one job may, starts itself again, resumes the planning or task at the reset (PR-31) |
 
 GitHub rules the design depends on: pushes and merges made with the built-in `GITHUB_TOKEN` start no
 workflows (except `workflow_dispatch`), so the runner dispatches explicitly; `GITHUB_TOKEN` can never
@@ -159,7 +168,7 @@ Claude Code commands: `/devos-review`, `/devos-new-project`, `/devos-method`.
 - **`devos.config.json`:** `max_attempts`; `builder` (model family, effort by risk); `reviewer`
   (models and efforts by risk and gate, `modes.light/deep`, `deep_paths`, intake and method efforts);
   `required_checks` / `optional_checks`; `surfaces` (builder, builder_method, reviewer, intake,
-  revise); `resume`; `modules` (supabase, r2, firebase); `heavy`; `retry_build_on`.
+  revise); `resume` (inline wait, relay, back-off); `modules` (supabase, r2, firebase); `heavy`; `retry_build_on`.
 - **Commands** (owners, members, collaborators only): `/devos intake [resume]`, `/devos revise …`,
   `/devos doctor`, `/devos go`, `/devos setup`.
 
@@ -167,7 +176,7 @@ Claude Code commands: `/devos-review`, `/devos-new-project`, `/devos-method`.
 
 | Symptom | What the automation does | What you do |
 |---|---|---|
-| Usage limit (Cursor or Claude) | switches to the other account; if both are out, parks and resumes after the first reset | nothing |
+| Usage limit (Cursor or Claude) | switches to the other account; if both are out, parks, waits (relayed by `devos-wait`) and resumes after the first reset | nothing; to resume at once, run `devos-resume` by hand |
 | Missing secret, variable, Vercel value | the run does not start or the deploy stops; the setup issue lists it with steps | add it; the rest resumes |
 | Review finds an outside cause | `setup_wait`: no retry spent; steps in the verdict | add it, comment `/devos setup` |
 | A check fails on the code | the reviewer FAILs with a focus; Grok retries up to `max_attempts` | only at halt: `/devos revise` or a change request |

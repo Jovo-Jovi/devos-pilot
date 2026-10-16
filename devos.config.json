@@ -173,7 +173,10 @@
   },
   "resume": {
     "inline_wait_max_minutes": 330,
-    "default_wait_minutes": 60
+    "default_wait_minutes": 60,
+    "relay": "public",
+    "max_backoff_minutes": 360,
+    "relay_note": "PR-31: waits longer than inline_wait_max_minutes are relayed by devos-wait (public: only on public repositories, where runner minutes are free; always; never). A limit that states no reset time is retried after default_wait_minutes, doubling on each repeat up to max_backoff_minutes."
   },
   "modules": {
     "$comment": "Optional stack modules (PR-17). A module is active when its detect file exists in the tree; its checks then join required_checks.",
