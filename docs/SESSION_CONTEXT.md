@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P06 Book types and covers (J5) · **Last verdict:** T19 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P06 Book types and covers (J5) · **Last verdict:** T20 PASS a3 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -26,8 +26,9 @@
 | T17 | Opening-hours editor: add, change and remove periods | PASS a1 — docs/reviews/T17-a1.md |
 | T18 | Whole-zone end-to-end proof against the CI database | PASS a1 — docs/reviews/T18-a1.md (gate G-Staff-editor signed by the human's merge) |
 | T19 | Firestore module: rules denying every client, rules tests, server-only reader, book-types seed | PASS a1 — docs/reviews/T19-a1.md (rules file reviewed at the human's merge) |
-| T20 | Public book-types page from Firestore, with the cover placeholder, linked from home | built — awaiting verdict |
+| T20 | Public book-types page from Firestore, with the cover placeholder, linked from home | PASS a3 — docs/reviews/T20-a3.md |
+| T21 | Migration: book_type_covers link table with RLS and pgTAP proof | built — awaiting verdict (schema change: the human's merge signs it) |
 
 ## Next action
 
-T20 is built on `task/T20` and awaits review. The public page `/[locale]/book-types` lists the seeded book types with the cover placeholder, and the home page links to it. Next is T21: the `book_type_covers` migration.
+T21 is built on `task/T21` and awaits review. The migration adds `public.book_type_covers` with row level security and its pgTAP proof. Nothing visible changes, and no page reads the table yet. This is a schema change: the human's merge signs it. Next is T22, the storage module.
