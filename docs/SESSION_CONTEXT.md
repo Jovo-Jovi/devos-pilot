@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P06 Book types and covers (J6) · **Last verdict:** T23 PASS a3 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P06 Book types and covers (J6) · **Last verdict:** T24 PASS a3 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -30,8 +30,9 @@
 | T21 | Migration: book_type_covers link table with RLS and pgTAP proof | PASS a1 — docs/reviews/T21-a1.md (schema change signed by the human's merge) |
 | T22 | Storage module (R2): server-only bucket client, image validation and re-encoding, storage tests | PASS a1 — docs/reviews/T22-a1.md (storage keys signed by the human's merge) |
 | T23 | Public page shows covers from the bucket; CSP img-src gains the bucket origin | PASS a3 — docs/reviews/T23-a3.md (headers signed by the human's merge) |
-| T24 | Staff cover editor: upload, replace, remove; staff home link | built — awaiting verdict |
+| T24 | Staff cover editor: upload, replace, remove; staff home link | PASS a3 — docs/reviews/T24-a3.md (staff writes signed by the human's merge) |
+| T25 | Whole-flow end-to-end proof and production checklist | built — awaiting the deep review and the `G-Book-types` merge |
 
 ## Next action
 
-T24 is built on `task/T24` and awaits the deep review and the human gate (risk 3: staff writes). Next is T25.
+T25 is built on `task/T25` and awaits the deep review and the `G-Book-types` merge.

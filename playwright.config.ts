@@ -15,12 +15,12 @@ export default defineConfig({
     {
       name: "chromium",
       use: { browserName: "chromium" },
-      testIgnore: /staff-(notices|hours|zone|book-types)\.spec\.ts/,
+      testIgnore: /(staff-(notices|hours|zone|book-types)|book-types-flow)\.spec\.ts/,
     },
     {
       name: "editor",
       use: { browserName: "chromium" },
-      testMatch: /staff-(notices|hours|zone|book-types)\.spec\.ts/,
+      testMatch: /(staff-(notices|hours|zone|book-types)|book-types-flow)\.spec\.ts/,
       dependencies: ["chromium"],
       workers: 1,
     },
