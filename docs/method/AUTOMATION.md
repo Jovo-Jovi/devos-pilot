@@ -158,8 +158,8 @@ Claude Code commands: `/devos-review`, `/devos-new-project`, `/devos-method`.
 
 ## 8. Settings
 
-- **Secrets** (names only; the full list with steps is `devos/setup.json`; no workflow but
-  `devos-setup` ever receives them all at once, PR-32): `CURSOR_API_KEY`(`_2`),
+- **Secrets** (names only; the full list with steps is `devos/setup.json`; no workflow ever
+  receives them all at once; checks get presence flags, PR-32, PR-33): `CURSOR_API_KEY`(`_2`),
   `CLAUDE_CODE_OAUTH_TOKEN`(`_2`) or `ANTHROPIC_API_KEY`(`_2`), `DEVOS_PAT`, `VERCEL_*`,
   `SUPABASE_*` + `DEVOS_BACKUP_PASSPHRASE`, `R2_*`, `FIREBASE_*`.
 - **Repository variables** (GitHub → Settings → Secrets and variables → Actions → **Variables**).
@@ -173,6 +173,7 @@ Claude Code commands: `/devos-review`, `/devos-new-project`, `/devos-method`.
   | `DEVOS_SUPABASE` | true · **unset** | deploy step: database backup, then migrations | SETUP §12 |
   | `DEVOS_R2` | true · **unset** | deploy step: storage preflight | SETUP §13 |
   | `DEVOS_FIREBASE` | true · **unset** | deploy step: Firestore rules, then seed | SETUP §13 |
+  | `DEVOS_SUPABASE_CLI_VERSION` | a version · **2.120.0** | the Supabase CLI every workflow installs (pinned: "latest" calls a rate-limited GitHub API) | PR-33 |
   | `DEVOS_HEAVY` | **notify** · hold | heavy runs are announced; hold also waits for `/devos go` | SETUP §11.8 |
   | `DEVOS_CURSOR_ACCOUNT` | **1** · 2 | the Cursor account (builder) a run starts with | SETUP §15 |
   | `DEVOS_CLAUDE_ACCOUNT` | **1** · 2 | the Claude account (review, planning, revision) a run starts with | SETUP §15 |
@@ -203,6 +204,7 @@ Claude Code commands: `/devos-review`, `/devos-new-project`, `/devos-method`.
 | Deploy fails (database paused, wrong key) | stops before the app moves, with the reason | fix the setting; a failed deploy re-runs when setup completes |
 | The automation itself misbehaves | — | file a "Dev OS method fix" with the run link |
 | A run shows "Action required: this workflow file may be malicious" | nothing runs until approved | check the last change to the workflow (usually a step given many secrets); if it is yours, approve once, then fix it with a method fix |
+| `ci` or the cycle fails at "Supabase CLI" with "rate limit exceeded" | — (the version is pinned, so this needs a changed or wrong `DEVOS_SUPABASE_CLI_VERSION`) | set the variable to an existing release, or delete it |
 | Everything must stop | — | set `DEVOS_PAUSED` = true (every `devos-*` workflow stops) |
 
 ## 10. Changing the automation
