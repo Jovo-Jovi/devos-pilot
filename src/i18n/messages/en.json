@@ -118,7 +118,19 @@
     "confirmAdded": "Period added.",
     "confirmChanged": "Period changed.",
     "confirmRemoved": "Period removed.",
-    "backToHours": "Back to opening hours"
+    "backToHours": "Back to opening hours",
+    "bookTypesLink": "Book type covers",
+    "bookTypesTitle": "Book type covers",
+    "coverFile": "Cover image",
+    "coverHint": "{formats}, up to {limit}.",
+    "coverUpload": "Upload cover",
+    "coverReplace": "Replace cover",
+    "coverRemove": "Remove cover",
+    "coverTooLarge": "The file is larger than {limit}. Choose a smaller image.",
+    "coverWrongType": "This file is not a {formats} image.",
+    "coverSaveError": "The cover could not be saved. Try again.",
+    "coverSaved": "Cover saved.",
+    "coverRemoved": "Cover removed."
   },
   "days": {
     "0": "Sunday",

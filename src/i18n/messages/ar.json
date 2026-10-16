@@ -118,7 +118,19 @@
     "confirmAdded": "أُضيفت الفترة.",
     "confirmChanged": "تم تغيير الفترة.",
     "confirmRemoved": "أُزيلت الفترة.",
-    "backToHours": "العودة إلى مواعيد العمل"
+    "backToHours": "العودة إلى مواعيد العمل",
+    "bookTypesLink": "أغلفة أنواع الكتب",
+    "bookTypesTitle": "أغلفة أنواع الكتب",
+    "coverFile": "صورة الغلاف",
+    "coverHint": "{formats}، حتى {limit}.",
+    "coverUpload": "رفع الغلاف",
+    "coverReplace": "استبدال الغلاف",
+    "coverRemove": "إزالة الغلاف",
+    "coverTooLarge": "الملف أكبر من {limit}. اختر صورة أصغر.",
+    "coverWrongType": "هذا الملف ليس صورة {formats}.",
+    "coverSaveError": "تعذّر حفظ الغلاف. حاول مرة أخرى.",
+    "coverSaved": "حُفظ الغلاف.",
+    "coverRemoved": "أُزيل الغلاف."
   },
   "days": {
     "0": "الأحد",
