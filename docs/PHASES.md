@@ -28,7 +28,7 @@ The runner reads the table below, and `guard:phases` checks it.
 | T17 | P05 | J6 | Opening-hours editor: add, change and remove periods | 2 | — | [x] | PASS a1 — docs/reviews/T17-a1.md |
 | T18 | P05 | J6 | Whole-zone end-to-end proof against the CI database | 2 | G-Staff-editor | [x] | PASS a1 — docs/reviews/T18-a1.md |
 | T19 | P06 | J4 | Firestore module: rules denying every client, rules tests, server-only reader, book-types seed | 3 | — | [x] | PASS a1 — docs/reviews/T19-a1.md |
-| T20 | P06 | J5 | Public book-types page from Firestore, with the cover placeholder, linked from home | 2 | — | [ ] | FAIL a1 — docs/reviews/T20-a1.md |
+| T20 | P06 | J5 | Public book-types page from Firestore, with the cover placeholder, linked from home | 2 | — | [ ] | FAIL a2 — docs/reviews/T20-a2.md |
 | T21 | P06 | J4 | Migration: book_type_covers link table with RLS and pgTAP proof | 3 | — | [ ] | — |
 | T22 | P06 | J4 | Storage module: server-only bucket client, image validation and re-encoding, storage tests | 3 | — | [ ] | — |
 | T23 | P06 | J5 | Public page shows covers from the bucket; CSP img-src gains the bucket origin | 3 | — | [ ] | — |
