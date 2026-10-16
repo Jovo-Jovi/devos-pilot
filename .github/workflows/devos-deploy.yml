@@ -79,7 +79,26 @@ jobs:
       - name: Settings the deploy needs (PR-27)
         if: (inputs.target || 'production') == 'production'
         env:
-          SECRETS_JSON: ${{ toJSON(secrets) }}
+          # PR-32: only whether each credential is set ("1" or empty), never its value. Handing every
+          # secret to a step (toJSON(secrets)) made GitHub hold the cycle as possibly malicious.
+          SECRETS_JSON: >-
+            {
+              "VERCEL_TOKEN":"${{ secrets.VERCEL_TOKEN != '' && '1' || '' }}",
+              "VERCEL_ORG_ID":"${{ secrets.VERCEL_ORG_ID != '' && '1' || '' }}",
+              "VERCEL_PROJECT_ID":"${{ secrets.VERCEL_PROJECT_ID != '' && '1' || '' }}",
+              "VERCEL_AUTOMATION_BYPASS_SECRET":"${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET != '' && '1' || '' }}",
+              "SUPABASE_ACCESS_TOKEN":"${{ secrets.SUPABASE_ACCESS_TOKEN != '' && '1' || '' }}",
+              "SUPABASE_PROJECT_REF":"${{ secrets.SUPABASE_PROJECT_REF != '' && '1' || '' }}",
+              "SUPABASE_DB_PASSWORD":"${{ secrets.SUPABASE_DB_PASSWORD != '' && '1' || '' }}",
+              "DEVOS_BACKUP_PASSPHRASE":"${{ secrets.DEVOS_BACKUP_PASSPHRASE != '' && '1' || '' }}",
+              "R2_ENDPOINT":"${{ secrets.R2_ENDPOINT != '' && '1' || '' }}",
+              "R2_ACCESS_KEY_ID":"${{ secrets.R2_ACCESS_KEY_ID != '' && '1' || '' }}",
+              "R2_SECRET_ACCESS_KEY":"${{ secrets.R2_SECRET_ACCESS_KEY != '' && '1' || '' }}",
+              "R2_BUCKET":"${{ secrets.R2_BUCKET != '' && '1' || '' }}",
+              "R2_PUBLIC_BASE_URL":"${{ secrets.R2_PUBLIC_BASE_URL != '' && '1' || '' }}",
+              "FIREBASE_PROJECT_ID":"${{ secrets.FIREBASE_PROJECT_ID != '' && '1' || '' }}",
+              "FIREBASE_DEPLOY_SERVICE_ACCOUNT":"${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT != '' && '1' || '' }}"
+            }
           VARS_JSON: ${{ toJSON(vars) }}
         run: node scripts/devos/setup-check.mjs --for deploy
       - name: Gate check — the guards must pass on what ships

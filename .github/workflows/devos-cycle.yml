@@ -107,7 +107,18 @@ jobs:
         id: setup
         if: steps.t.outputs.done == 'false'
         env:
-          SECRETS_JSON: ${{ toJSON(secrets) }}
+          # PR-32: only whether each credential is set ("1" or empty), never its value. Handing every
+          # secret to a step (toJSON(secrets)) made GitHub hold the cycle as possibly malicious.
+          SECRETS_JSON: >-
+            {
+              "CURSOR_API_KEY":"${{ secrets.CURSOR_API_KEY != '' && '1' || '' }}",
+              "CURSOR_API_KEY_2":"${{ secrets.CURSOR_API_KEY_2 != '' && '1' || '' }}",
+              "CLAUDE_CODE_OAUTH_TOKEN":"${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' && '1' || '' }}",
+              "CLAUDE_CODE_OAUTH_TOKEN_2":"${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 != '' && '1' || '' }}",
+              "ANTHROPIC_API_KEY":"${{ secrets.ANTHROPIC_API_KEY != '' && '1' || '' }}",
+              "ANTHROPIC_API_KEY_2":"${{ secrets.ANTHROPIC_API_KEY_2 != '' && '1' || '' }}",
+              "DEVOS_PAT":"${{ secrets.DEVOS_PAT != '' && '1' || '' }}"
+            }
           VARS_JSON: ${{ toJSON(vars) }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

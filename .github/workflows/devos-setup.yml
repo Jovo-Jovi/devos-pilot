@@ -48,6 +48,9 @@ jobs:
           node-version: 22
       - name: Check names (never values)
         env:
+          # The one place every secret NAME is needed (product settings in docs/setup-items.json can be
+          # any name). Only scripts/devos/setup-check.mjs runs here, no outside code, and it reads names
+          # only. guard:secrets keeps toJSON(secrets) out of every other workflow (PR-32).
           SECRETS_JSON: ${{ toJSON(secrets) }}
           VARS_JSON: ${{ toJSON(vars) }}
         run: node scripts/devos/setup-check.mjs

@@ -1,5 +1,5 @@
 // guard:secrets — no credential, key, token or project ref in any committable file (Dev OS §7).
-import { repoFiles, scan, result } from "./lib.mjs";
+import { repoFiles, scan, result, read } from "./lib.mjs";
 
 const RULES = [
   { re: /sk-ant-[A-Za-z0-9_-]{20,}/, label: "Anthropic key" },
@@ -24,5 +24,11 @@ const SKIP = [/^pnpm-lock\.yaml$/, /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|pdf|zip
 export default function secrets() {
   const files = repoFiles().filter((f) => !SKIP.some((s) => s.test(f)));
   const findings = scan(files, RULES, { skipComments: false });
+  // PR-32: no workflow hands every secret to a step, except the setup check (names only, no outside code).
+  for (const f of files.filter((x) => /^\.github\/workflows\/.+\.ya?ml$/.test(x) && !x.endsWith("devos-setup.yml"))) {
+    read(f).split(/\r?\n/).forEach((line, i) => {
+      if (/toJSON\(\s*secrets\s*\)/.test(line) && !/^\s*#/.test(line)) findings.push(`${f}:${i + 1} — passes every secret to a step (toJSON(secrets)); pass only the names it needs`);
+    });
+  }
   return result(findings.length ? "FAIL" : "PASS", findings, `${files.length} files scanned`);
 }

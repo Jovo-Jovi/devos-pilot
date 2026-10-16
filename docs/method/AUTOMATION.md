@@ -158,7 +158,8 @@ Claude Code commands: `/devos-review`, `/devos-new-project`, `/devos-method`.
 
 ## 8. Settings
 
-- **Secrets** (names only; the full list with steps is `devos/setup.json`): `CURSOR_API_KEY`(`_2`),
+- **Secrets** (names only; the full list with steps is `devos/setup.json`; no workflow but
+  `devos-setup` ever receives them all at once, PR-32): `CURSOR_API_KEY`(`_2`),
   `CLAUDE_CODE_OAUTH_TOKEN`(`_2`) or `ANTHROPIC_API_KEY`(`_2`), `DEVOS_PAT`, `VERCEL_*`,
   `SUPABASE_*` + `DEVOS_BACKUP_PASSPHRASE`, `R2_*`, `FIREBASE_*`.
 - **Repository variables** (GitHub → Settings → Secrets and variables → Actions → **Variables**).
@@ -201,6 +202,7 @@ Claude Code commands: `/devos-review`, `/devos-new-project`, `/devos-method`.
 | Google Fonts download fails the build | retried three times (PR-24) | nothing |
 | Deploy fails (database paused, wrong key) | stops before the app moves, with the reason | fix the setting; a failed deploy re-runs when setup completes |
 | The automation itself misbehaves | — | file a "Dev OS method fix" with the run link |
+| A run shows "Action required: this workflow file may be malicious" | nothing runs until approved | check the last change to the workflow (usually a step given many secrets); if it is yours, approve once, then fix it with a method fix |
 | Everything must stop | — | set `DEVOS_PAUSED` = true (every `devos-*` workflow stops) |
 
 ## 10. Changing the automation

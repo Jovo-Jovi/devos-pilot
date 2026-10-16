@@ -40,7 +40,11 @@ const needed = items.filter((i) => (i.when ?? ["always"]).every(holds));
 
 // Vercel Production variable names, once, if Vercel access exists.
 async function vercelNames() {
-  const token = secrets.VERCEL_TOKEN, project = secrets.VERCEL_PROJECT_ID, org = secrets.VERCEL_ORG_ID;
+  // The job's own Vercel variables first (devos-deploy passes presence flags only, PR-32); else the bundle.
+  const real = (v) => (v && v !== "1" ? v : "");
+  const token = real(process.env.VERCEL_TOKEN) || real(secrets.VERCEL_TOKEN);
+  const project = real(process.env.VERCEL_PROJECT_ID) || real(secrets.VERCEL_PROJECT_ID);
+  const org = real(process.env.VERCEL_ORG_ID) || real(secrets.VERCEL_ORG_ID);
   if (!token || !project) return { error: "Vercel access is not set up (VERCEL_TOKEN, VERCEL_PROJECT_ID), so the site's variables cannot be checked" };
   const team = org && org.startsWith("team_") ? `&teamId=${encodeURIComponent(org)}` : "";
   try {
