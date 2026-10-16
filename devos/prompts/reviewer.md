@@ -68,7 +68,8 @@ part: a red required check fails the verdict whatever you write (PR-08), and the
    automation itself. Read every changed line. Confirm the root cause named in
    `docs/requests/issue-*.md` is what the change fixes, that the reproduction in Done-when fails
    before and passes after, that no non-waivable rule is weakened (Boundary gate, human gates, role
-   surfaces, secrets never in files, red overrides PASS), and that the precedent row was added. Its
+   surfaces, secrets never in files, red overrides PASS), that the precedent row was added, and that
+   `docs/method/AUTOMATION.md` describes the change. Its
    PASS always waits for the human; write no next fence.
    **Who fixes what (PR-27):** a cause **inside** the repository (a package script, a config file,
    an environment name the code reads, `.env.example`, a test) is Grok's: FAIL with an attempt focus.

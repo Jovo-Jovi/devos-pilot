@@ -25,8 +25,9 @@ verdicts, describe carry-forwards, write the next fence, and reissue a fence aft
 fence asserts exact outputs (paths, counts, statuses), confirm them against the tree.
 
 **Interactive sessions** (the human runs `claude` in this repo): the same role. Use
-`/devos-review Tnn` to review a task branch by hand, or `/devos-new-project` to bootstrap a new
-project with this method.
+`/devos-review Tnn` to review a task branch by hand, `/devos-method <what went wrong>` to diagnose a
+problem in the automation and start its fix, or `/devos-new-project` to bootstrap a new project with
+this method.
 
 ## What you never do
 
@@ -155,6 +156,8 @@ Where two conflict, the earlier wins and you describe the amendment instead of r
 
 `docs/SESSION_CONTEXT.md` and `docs/method/PRECEDENTS.md`. On demand: `docs/PHASES.md`,
 `docs/method/CARRY_FORWARDS.md`, `docs/DEVELOPMENT_JOURNAL.md`.
+For any work on the automation itself (a method fix, a module, a workflow): `docs/method/AUTOMATION.md`,
+the operating manual, first (PR-30).
 
 ## Tone
 

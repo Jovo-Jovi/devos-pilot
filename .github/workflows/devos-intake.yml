@@ -137,12 +137,17 @@ jobs:
           fi
       - name: Reviewer — plan the request
         env:
-          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_OAUTH_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CLAUDE_APIKEY_1: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_OAUTH_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+          CLAUDE_APIKEY_2: ${{ secrets.ANTHROPIC_API_KEY_2 }}
+          DEVOS_CLAUDE_ACCOUNT: ${{ vars.DEVOS_CLAUDE_ACCOUNT || '1' }}
+          DEVOS_ACCOUNT_SWITCH: ${{ vars.DEVOS_ACCOUNT_SWITCH || 'auto' }}
           DEVOS_ISSUE: ${{ github.event.issue.number }}
         run: |
-          [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
-          [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
+          . scripts/devos/accounts.sh
+          accounts=$(devos_accounts claude)
+          [ -n "$accounts" ] || echo "::error::no Claude credential: set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY (or the _2 pair)"
           MODEL=$(node -e 'console.log(require("./devos.config.json").reviewer.gate_model)')
           # A request marked "Small change" is planned at high effort, anything else at intake_effort (PR-20).
           EFFORT=$(node -e '
@@ -151,14 +156,28 @@ jobs:
             console.log(small ? (r.intake_effort_small || "high") : (r.intake_effort || "xhigh"));')
           if [ "$MODE" = "method" ]; then EFFORT=$(node -e 'console.log(require("./devos.config.json").reviewer.method_effort || "high")'); fi
           echo "$MODE: $MODEL at effort $EFFORT (resume: $RESUME)"
-          DEVOS_INTAKE_RESUME="$RESUME" node scripts/devos/render-prompt.mjs "$MODE" - - --out .devos/intake-prompt.md
           set +e
-          claude -p "$(cat .devos/intake-prompt.md)" --model "$MODEL" --effort "$EFFORT" --output-format json \
-            --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 120 \
-            --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
-            --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
-            > .devos/intake.json 2> .devos/intake.err
-          echo "reviewer exit code: $?"
+          # PR-29: on a usage limit the planning continues at once on the other Claude account, from
+          # the partial plan the first run left in the tree (rendered as a resume).
+          resume_now="$RESUME"
+          for acc in $accounts; do
+            devos_use_claude "$acc"
+            DEVOS_INTAKE_RESUME="$resume_now" node scripts/devos/render-prompt.mjs "$MODE" - - --out .devos/intake-prompt.md
+            claude -p "$(cat .devos/intake-prompt.md)" --model "$MODEL" --effort "$EFFORT" --output-format json \
+              --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 120 \
+              --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
+              --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
+              > .devos/intake.json 2> .devos/intake.err
+            rc=$?
+            echo "reviewer exit code: $rc (Claude account $acc)"
+            if devos_limited .devos/intake.json .devos/intake.err "$rc"; then
+              mkdir -p .devos/limits; cat .devos/intake.json .devos/intake.err > ".devos/limits/claude-$acc.txt"
+              devos_note "Planning: Claude account $acc reached its usage limit."
+              resume_now=true
+              continue
+            fi
+            break
+          done
       - name: Guards — intake surface and ledger structure
         id: g
         continue-on-error: true
@@ -208,8 +227,8 @@ jobs:
           fi
           if [ "$D" = "limit" ]; then
             NB=$(node --input-type=module -e '
-              import { notBefore, readText } from "./scripts/devos/limits.mjs";
-              console.log(notBefore(readText(".devos/intake.json") + "\n" + readText(".devos/intake.err"), 60));')
+              import { earliestNotBefore, readText } from "./scripts/devos/limits.mjs";
+              console.log(earliestNotBefore("claude", readText(".devos/intake.json") + "\n" + readText(".devos/intake.err"), 60));')
             echo "not_before=$NB" >> "$GITHUB_OUTPUT"
             gh label create "devos:quota-wait" --color fbca04 --force --repo "$REPO" >/dev/null
             gh issue edit "$ISSUE" --repo "$REPO" --add-label "devos:quota-wait"
@@ -363,23 +382,32 @@ jobs:
           printf '%s\n' "${NOTE#/devos revise}" > .devos/revision.md
       - name: Reviewer — reissue the fence with the revision
         env:
-          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_OAUTH_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CLAUDE_APIKEY_1: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_OAUTH_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+          CLAUDE_APIKEY_2: ${{ secrets.ANTHROPIC_API_KEY_2 }}
+          DEVOS_CLAUDE_ACCOUNT: ${{ vars.DEVOS_CLAUDE_ACCOUNT || '1' }}
+          DEVOS_ACCOUNT_SWITCH: ${{ vars.DEVOS_ACCOUNT_SWITCH || 'auto' }}
           TASK: ${{ steps.pr.outputs.task }}
           ATTEMPT: ${{ steps.n.outputs.attempt }}
         run: |
-          [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
-          [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
+          . scripts/devos/accounts.sh
+          accounts=$(devos_accounts claude)
           MODEL=$(node -e 'import("./scripts/devos/lib.mjs").then(({parsePhases,reviewerModel})=>{const r=parsePhases().rows.find(x=>x.task===process.env.TASK);console.log(reviewerModel(r))})')
           EFFORT=$(node -e 'import("./scripts/devos/lib.mjs").then(({parsePhases,reviewerEffort})=>{const r=parsePhases().rows.find(x=>x.task===process.env.TASK);console.log(reviewerEffort(r))})')
           node scripts/devos/render-prompt.mjs revise "$TASK" "$ATTEMPT" --out .devos/revise-prompt.md
           set +e
-          claude -p "$(cat .devos/revise-prompt.md)" --model "$MODEL" --effort "$EFFORT" --output-format json \
-            --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 60 \
-            --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
-            --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
-            > .devos/revise.json 2> .devos/revise.err
-          echo "reviewer exit code: $?"
+          for acc in $accounts; do
+            devos_use_claude "$acc"
+            claude -p "$(cat .devos/revise-prompt.md)" --model "$MODEL" --effort "$EFFORT" --output-format json \
+              --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 60 \
+              --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
+              --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
+              > .devos/revise.json 2> .devos/revise.err
+            rc=$?
+            echo "reviewer exit code: $rc (Claude account $acc)"
+            devos_limited .devos/revise.json .devos/revise.err "$rc" || break
+          done
       - name: Guard — revise surface
         run: node scripts/devos/guard-surfaces.mjs revise
       - name: Push the reissued fence and rebuild

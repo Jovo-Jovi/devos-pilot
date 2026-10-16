@@ -1,7 +1,7 @@
 // Recognise "out of plan usage / rate limited / provider overloaded" in agent output (PR-12).
 // These are waits, not failures: the task is parked with devos:quota-wait and devos-resume
 // re-dispatches it hourly. Keep the patterns broad; a false positive only delays a retry by an hour.
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { P } from "./lib.mjs";
 
 const LIMIT_RE = new RegExp(
@@ -64,6 +64,17 @@ export function notBefore(text, defaultMinutes = 60, now = new Date()) {
   const reset = parseResetTime(text, now);
   const t = reset ? reset.getTime() + 3 * 60000 : now.getTime() + defaultMinutes * 60000;
   return new Date(t).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+/** PR-29: with two accounts both out of usage, the run resumes when the FIRST of them resets.
+ *  `tool` is cursor or claude; each account that hit a limit left .devos/limits/<tool>-<n>.txt. */
+export function earliestNotBefore(tool, currentText, defaultMinutes = 60, now = new Date()) {
+  const dir = P(".devos/limits");
+  const texts = [currentText];
+  if (existsSync(dir)) for (const f of readdirSync(dir).filter((n) => n.startsWith(`${tool}-`))) texts.push(readFileSync(`${dir}/${f}`, "utf8"));
+  // Only stated reset times compete; the default wait applies when no account stated one.
+  const stated = texts.filter((t) => parseResetTime(t, now)).map((t) => notBefore(t, defaultMinutes, now)).sort();
+  return stated[0] ?? notBefore("", defaultMinutes, now);
 }
 
 /** One line on what an agent run cost (PR-20): minutes, turns, tokens read and written. */

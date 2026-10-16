@@ -107,7 +107,8 @@
         ".github/ISSUE_TEMPLATE/**",
         ".cursor/rules/**",
         ".cursor/skills/**",
-        "docs/method/FULLSTACK_MODULE.md"
+        "docs/method/FULLSTACK_MODULE.md",
+        "docs/method/AUTOMATION.md"
       ]
     },
     "builder_method": {

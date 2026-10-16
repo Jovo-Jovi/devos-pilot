@@ -1,0 +1,205 @@
+# Dev OS automation — operating manual
+
+The single description of the automated cycle as a machine: who does what, every workflow, script,
+guard, label, status, marker and setting, how they hand off, what happens when something fails, and
+how to change the automation safely. **Read this first for any work on the method itself** (a method
+fix, a new module, a new check). `guard:manual` fails when a workflow, runner script, guard, prompt,
+repository variable, label or `/devos` command exists that this manual does not name, so every
+method change updates it in the same PR.
+
+Precedence: `CLAUDE.md` and `docs/method/PRECEDENTS.md` (the binding rules) outrank this manual;
+this manual describes how the repository implements them. Where they disagree, the precedent wins
+and this file is corrected.
+
+## 1. Roles and invariants
+
+| Role | Who | May change | Never |
+|---|---|---|---|
+| Human | you | everything; signs ODs and gates by merging | — |
+| Builder | Grok in Cursor CLI (`agent`) | product code, tests, its report (`surfaces.builder.deny` says what not); in a method fix, the method files its fence names (`surfaces.builder_method`) | git, gh, secrets, fences, reviews, ledgers |
+| Reviewer | Claude Code (`claude`) | `docs/reviews/**`, `docs/fences/**` (PR-07); intake/method runs: docs listed in `surfaces.intake` | code, tests, configs |
+| Runner | GitHub Actions + `scripts/devos/` | git, PRs, labels, statuses, the PHASES ledger | deciding a verdict (it applies `verdict.mjs`) |
+
+Invariants every change must keep: the Boundary gate is non-waivable · red checks override PASS
+(PR-08) · nothing merges before its verdict (PR-13) · human gates (risk 3, a gate, a migration or
+rules change, a method change) wait for your merge · agents never hold a git credential (PR-04) ·
+secrets never enter a file · fetch, never paste (PR-02) · a usage limit is a wait, not a failure
+(PR-12, PR-29).
+
+## 2. The flows
+
+**New work.** Issue form "Dev OS change request" (label `devos:request`) → `devos-intake` (Claude,
+gate model) plans it on `intake/issue-N`: draft OD, scope row, PHASES rows, first fence,
+`docs/requests/issue-N.md`, settings in `docs/setup-items.json` → intake PR (`devos:intake`) → your
+merge signs the OD → `devos-advance` dispatches `devos-cycle`.
+
+**One task attempt** (`devos-cycle`, one run = one attempt of one task):
+1. `resolve`: `next-task.mjs` picks the task (method fixes first, PR-28); `setup-check.mjs --for
+   cycle` stops a run that has no credentials (PR-27); `heavy.mjs` announces or holds heavy runs (PR-20).
+2. `cycle`: branch `task/Tnn` (a reissue continues it, PR-03) → `builder-model.mjs` picks the Grok
+   id → `modules.mjs start` brings up the local services → Grok builds (`accounts.sh` switches
+   Cursor accounts on a limit, PR-29) → `guard-surfaces.mjs builder` + the method-file guard (from
+   main's workflow) → commit, `sync-main.sh`, push → PR → `builder-status.mjs` (ok / park / halt) →
+   `run-checks.mjs` + `checks-status.sh` (status `devos/checks`) → preview + `screens.mjs` →
+   `review-mode.mjs` (light/deep) + `evidence.mjs` → Claude reviews (account switch, PR-29) →
+   `guard-surfaces.mjs reviewer` → `verdict.mjs` decides → review commit, sync, re-check if main
+   moved (PR-25), statuses → act.
+3. Actions: `merge` (auto-merge, label `devos:auto-merged`, next task dispatched) · `human_gate`
+   (label `devos:human-gate`, doctor dispatched) · `retry` (next attempt with the reissued fence) ·
+   `quota_wait` (label `devos:quota-wait`, `wait-and-resume` job or `devos-resume`) · `setup_wait`
+   (PR-27, `setup-issue.mjs wait`) · `halt` (label `devos:halted`, doctor dispatched).
+
+**Gates.** `devos-doctor` keeps one comment per PR (marker `devos-doctor`), sets `devos/gate`, labels
+`devos:needs-you` when only you can act, re-checks gate PRs when main moves (PR-25), and asks Claude
+for a read-only second opinion when no rule explains a failure. Your merge → `devos-advance`.
+
+**Production.** Push to main by you → `devos-deploy`: `which` skips the runner's auto-merges →
+settings check (PR-27) → guards → storage preflight (PR-26) → database backup + migrations (PR-18) →
+Firestore rules + seed (PR-26) → Vercel build and upload (`vercel-deploy.sh`, PR-16, PR-24) → strict
+smoke test with `probe.mjs`.
+
+**Settings.** `devos-setup` (push to main, `/devos setup`, every two hours via `devos-resume` while
+the issue is open) → `setup-check.mjs` → `setup-issue.mjs sync` keeps the issue "Dev OS: setup
+needed" (label `devos:setup`) and resumes waiting runs and a failed deploy when complete.
+
+**Method fixes and improvements.** Issue form "Dev OS method fix" (label `devos:method`), for a
+problem or for a change in how the automation works → `devos-intake` in method mode
+(`devos/prompts/method.md`) with the linked runs' logs → PR with diagnosis and a Phase `PM`
+task → your merge → the fix runs first, Grok builds, deep review forced, your gate forced →
+`devos-advance` restarts the task the fence's `Resume after merge` names.
+
+**Revisions.** `/devos revise <what>` on a task PR → reissued fence → next attempt (may pass
+`max_attempts`).
+
+## 3. Workflows (`.github/workflows/`)
+
+| File | Triggers | Jobs | Does |
+|---|---|---|---|
+| `devos-cycle.yml` | dispatch only (form: task, attempt, review_only, effort, fast, revision, reuse_review, go, cursor_account, claude_account) | `resolve`, `cycle`, `wait-and-resume` | one task attempt, end to end (§2) |
+| `devos-intake.yml` | issue labelled `devos:request` / `devos:method`; comments `/devos intake`, `/devos go`, `/devos revise`; dispatch (resume) | `intake`, `intake-wait`, `go`, `revise` | plans requests and method fixes; holds and resumes plans across limits; releases held runs; revisions |
+| `devos-advance.yml` | PR closed (merged, `task/` or `intake/`, not auto-merged) | `advance` | dispatches the next task, or restarts the task a method fix unblocked |
+| `devos-doctor.yml` | ci finished; `/devos doctor`; push to main; dispatch (PR) | `gates`, `doctor` | the gate doctor (§2) |
+| `devos-resume.yml` | every 2 hours; dispatch | `resume` | backstop for parked runs and plans; re-checks the setup issue |
+| `devos-setup.yml` | push to main; `/devos setup`; dispatch | `setup` | the setup check and issue (PR-27) |
+| `devos-deploy.yml` | push to main; dispatch (production/preview) | `which`, `deploy` | production order (§2) |
+| `ci.yml` | push to main; dispatch | `checks` | the same checks on main (PRs are checked by the cycle, PR-25) |
+
+GitHub rules the design depends on: pushes and merges made with the built-in `GITHUB_TOKEN` start no
+workflows (except `workflow_dispatch`), so the runner dispatches explicitly; `GITHUB_TOKEN` can never
+push a change to `.github/workflows/` (method fixes need `DEVOS_PAT` with Workflows); a scheduled
+workflow may start late.
+
+## 4. Runner scripts (`scripts/devos/`)
+
+| Script | Role |
+|---|---|
+| `lib.mjs` | shared: config, PHASES parsing (`nextOpenTask`, `taskAfter`, method rows), globs, outputs, `.devos/*.env` |
+| `next-task.mjs` | which task and attempt; refuses out-of-order product tasks |
+| `heavy.mjs` | heavy-run notice or hold (`DEVOS_HEAVY`) |
+| `builder-model.mjs` | Grok model id from the fence's Effort/Fast, checked against `agent models` |
+| `modules.mjs` | starts every needed module (`supabase.mjs`, `r2.mjs`, `firebase.mjs`); `plannedModules()` |
+| `supabase.mjs` · `r2.mjs` · `firebase.mjs` | each module's local service, env file and checks (PR-17, PR-26) |
+| `accounts.sh` · `limit-check.mjs` | account order, credential export, limit detection (PR-29) |
+| `guard-surfaces.mjs` | who may change what, per role |
+| `sync-main.sh` | merges main into the task branch before every push (PR-14) |
+| `builder-status.mjs` | ok / quota park / halt after the build |
+| `run-checks.mjs` | module checks, then guards, typecheck, lint, test, build, e2e → `.devos/ci-results.json` |
+| `checks-status.sh` | posts `devos/checks` |
+| `vercel-deploy.sh` | git-less prebuilt upload, prints only a real URL |
+| `screens.mjs` · `probe.mjs` | screenshots for the visual check; strict reachability probe |
+| `review-mode.mjs` | light or deep review, model, effort, turns, critical paths |
+| `evidence.mjs` | `.devos/evidence.md`, the reviewer's evidence pack |
+| `render-prompt.mjs` | fills `devos/prompts/*.md` |
+| `verdict.mjs` | validates the review, applies PR-08 and the gates, records PHASES, picks the action |
+| `limits.mjs` | limit patterns, reset parsing, `earliestNotBefore`, run cost |
+| `doctor.mjs` | the gate doctor's facts, rules and comment |
+| `setup-check.mjs` · `setup-issue.mjs` | settings by name; the setup issue and resumptions (PR-27) |
+| `loop.mjs` | the same cycle on your machine, with your logged-in CLIs |
+
+## 5. Guards (`scripts/guards/`, run by `run-all.mjs` as the `guards` check)
+
+`secrets` (no credential or project ref in any file) · `phases` (ledger structure; PM rows risk 3
+with a gate) · `naming` · `design` (tokens, no raw colours, logical properties) · `i18n` (identical
+catalogues) · `boundary` (no visitor data outside declared zones) · `literals` (no hard-coded contact
+or locale) · `data` (migrations, RLS, grants, server-only secret key, synthetic seed, pgTAP) ·
+`services` (R2 and Firebase rules) · `manual` (this file names every part of the automation).
+
+## 6. Prompts, schemas, rules
+
+`devos/prompts/`: `builder.md`, `reviewer.md`, `intake.md`, `method.md`, `revise.md`, `doctor.md`.
+`devos/schemas/`: verdict, intake (also revise and method), doctor. Builder rules: `.cursor/rules/`
+(`70-supabase`, `71-r2`, `72-firebase` for the modules). Reviewer rules: `CLAUDE.md`. Interactive
+Claude Code commands: `/devos-review`, `/devos-new-project`, `/devos-method`.
+
+## 7. State the runner keeps
+
+- **Ledger:** `docs/PHASES.md` (Done and Verdict written only by `verdict.mjs`), reviews in
+  `docs/reviews/`, fences in `docs/fences/`, reports in `docs/reports/`, requests in `docs/requests/`.
+- **Commit statuses:** `devos/verdict` (the review's result), `devos/checks` (the runner's checks),
+  `devos/gate` (the doctor: ready for your merge or not).
+- **Labels:** `devos`, `risk-1..3`, `devos:auto-merged`, `devos:human-gate`, `devos:halted`,
+  `devos:quota-wait`, `devos:setup-wait`, `devos:needs-you`, `devos:method`, `devos:intake`,
+  `devos:request`, `devos:setup`, `devos:notices`.
+- **Comment markers** (HTML comments the runner reads back): `devos-resume` (park and resume),
+  `devos-intake-resume`, `devos-held` / `devos-held-done` (PR-20), `devos-doctor`, `devos-setup`,
+  `devos-setup-wait`, `devos-setup-missing`, `devos-setup-resumed`.
+- **Run scratch** (`.devos/`, never committed, kept as the run's artifact): prompts, agent output,
+  `ci-results.json`, `logs/`, `evidence.md`, `screens/`, `*.env` (module services), `limits/`,
+  `accounts.md`, `setup.md`, `setup-result.json`.
+
+## 8. Settings
+
+- **Secrets** (names only; the full list with steps is `devos/setup.json`): `CURSOR_API_KEY`(`_2`),
+  `CLAUDE_CODE_OAUTH_TOKEN`(`_2`) or `ANTHROPIC_API_KEY`(`_2`), `DEVOS_PAT`, `VERCEL_*`,
+  `SUPABASE_*` + `DEVOS_BACKUP_PASSPHRASE`, `R2_*`, `FIREBASE_*`.
+- **Repository variables:** `DEVOS_PAUSED` (true stops every `devos-*` workflow; `ci.yml` still
+  checks main), `DEVOS_VERCEL`,
+  `DEVOS_PREVIEW_DB`, `DEVOS_SUPABASE`, `DEVOS_R2`, `DEVOS_FIREBASE`, `DEVOS_HEAVY` (notify | hold),
+  `DEVOS_CURSOR_ACCOUNT`, `DEVOS_CLAUDE_ACCOUNT`, `DEVOS_ACCOUNT_SWITCH` (auto | off).
+- **`devos.config.json`:** `max_attempts`; `builder` (model family, effort by risk); `reviewer`
+  (models and efforts by risk and gate, `modes.light/deep`, `deep_paths`, intake and method efforts);
+  `required_checks` / `optional_checks`; `surfaces` (builder, builder_method, reviewer, intake,
+  revise); `resume`; `modules` (supabase, r2, firebase); `heavy`; `retry_build_on`.
+- **Commands** (owners, members, collaborators only): `/devos intake [resume]`, `/devos revise …`,
+  `/devos doctor`, `/devos go`, `/devos setup`.
+
+## 9. When something goes wrong
+
+| Symptom | What the automation does | What you do |
+|---|---|---|
+| Usage limit (Cursor or Claude) | switches to the other account; if both are out, parks and resumes after the first reset | nothing |
+| Missing secret, variable, Vercel value | the run does not start or the deploy stops; the setup issue lists it with steps | add it; the rest resumes |
+| Review finds an outside cause | `setup_wait`: no retry spent; steps in the verdict | add it, comment `/devos setup` |
+| A check fails on the code | the reviewer FAILs with a focus; Grok retries up to `max_attempts` | only at halt: `/devos revise` or a change request |
+| Review over its turn limit | the verdict is taken from the complete review file (PR-21) | nothing |
+| Main moved during a run | merged in before push; re-checked before any merge (PR-14, PR-25) | nothing |
+| Google Fonts download fails the build | retried three times (PR-24) | nothing |
+| Deploy fails (database paused, wrong key) | stops before the app moves, with the reason | fix the setting; a failed deploy re-runs when setup completes |
+| The automation itself misbehaves | — | file a "Dev OS method fix" with the run link |
+| Everything must stop | — | set `DEVOS_PAUSED` = true (every `devos-*` workflow stops) |
+
+## 10. Changing the automation
+
+The normal path is a **method fix issue**, for a problem or an improvement: the reviewer diagnoses
+from the logs (or designs the improvement with the recipes below), Grok builds, the reviewer reads
+every line, you merge. Every method change, whoever makes it, must:
+
+1. keep every invariant in §1 and fit every precedent, or amend one explicitly;
+2. add a precedent row (`PRECEDENTS.md`, next id after the "Live maximum" line);
+3. **update this manual** where the change lands (`guard:manual` checks the names);
+4. prove itself: `node --check` on changed scripts, `node scripts/guards/run-all.mjs`, every changed
+   workflow parsed as YAML, and a reproduction of what it fixes or adds.
+
+Recipes:
+- **A new stack module:** a script beside `r2.mjs` (isActive, start, cliPresent, env file); a
+  `modules.<name>` entry in the config (detect, fence_hint, required_checks, env names); its checks in
+  `run-checks.mjs`; its section in `evidence.mjs`; rules in `guard:services` or a new guard; a deploy
+  step after the database and before the app; its settings in `devos/setup.json`; a builder rule
+  `.cursor/rules/7x-<name>.mdc`; a section in `FULLSTACK_MODULE.md`; intake guidance.
+- **A new check:** a package script plus its name in `required_checks` (product) or in a module
+  (method). Red overrides PASS automatically.
+- **A new guard:** `scripts/guards/<name>.mjs` returning `result(...)`, registered in `run-all.mjs`,
+  listed in §5.
+- **A new setting:** an item in `devos/setup.json` (method) or `docs/setup-items.json` (product).
+- **A new workflow or label:** listed in §3 or §7; anything a bot push should trigger must be
+  dispatched explicitly.

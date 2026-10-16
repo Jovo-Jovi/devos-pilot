@@ -18,7 +18,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { P, config, parsePhases, isHumanGate, taskAfter, updatePhasesRow, changedPaths, emit, fail } from "./lib.mjs";
-import { looksLikeLimit, readText, resumeMarker, notBefore, agentStats } from "./limits.mjs";
+import { looksLikeLimit, readText, resumeMarker, earliestNotBefore, agentStats } from "./limits.mjs";
 import { rulesFiles } from "./firebase.mjs";
 
 const arg = (n, d = "") => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
@@ -117,7 +117,7 @@ if ((!structured || !["PASS", "FAIL"].includes(structured.verdict)) && !limitHit
 if (!structured || !["PASS", "FAIL"].includes(structured.verdict)) {
   if (limitHit) {
     notes.push("the reviewer stopped on a Claude usage or rate limit");
-    const nb = notBefore(`${readText(reviewerJson)}\n${readText(".devos/reviewer.err")}`, config().resume?.default_wait_minutes ?? 60);
+    const nb = earliestNotBefore("claude", `${readText(reviewerJson)}\n${readText(".devos/reviewer.err")}`, config().resume?.default_wait_minutes ?? 60);
     finish("WAIT", "quota_wait", {
       notBefore: nb,
       human: `Claude is out of plan usage. Nothing was recorded and the attempt was not used up. The runner re-runs this review (review_only) after ${nb} (UTC); remove the devos:quota-wait label to cancel that.`,

@@ -420,3 +420,45 @@ fine-grained token for this repository with Read and write on Contents, Pull req
 Actions, Commit statuses and **Workflows** (GitHub's built-in token can never change workflows).
 The setup issue asks for it as soon as a method fix is planned.
 
+
+## 15. Two accounts per agent (PR-29)
+
+Optional. Add a second Cursor account and/or a second Claude account, and a run that hits a usage
+limit carries on with the other one instead of waiting for the reset.
+
+| What | GitHub secret (Settings → Secrets and variables → Actions) |
+|---|---|
+| Cursor, account 1 / 2 | `CURSOR_API_KEY` / `CURSOR_API_KEY_2` |
+| Claude, account 1 / 2 | `CLAUDE_CODE_OAUTH_TOKEN` / `CLAUDE_CODE_OAUTH_TOKEN_2` (`claude setup-token` while signed in to each account), or `ANTHROPIC_API_KEY` / `ANTHROPIC_API_KEY_2` |
+
+**Choosing.** Repository variables (Settings → Secrets and variables → Actions → Variables):
+- `DEVOS_CURSOR_ACCOUNT` = `1` or `2`: the Cursor account every run starts with (default `1`).
+- `DEVOS_CLAUDE_ACCOUNT` = `1` or `2`: the same for every Claude run (reviews, planning, revisions).
+- `DEVOS_ACCOUNT_SWITCH` = `off` to stay on the chosen account and wait at its limit; `auto` (default)
+  switches.
+- For a single run: Actions → devos-cycle → Run workflow → `cursor_account` / `claude_account`.
+
+**What happens on a limit.** The builder continues the same attempt on the other account from the
+partial work already in the tree; the planner continues its partial plan; a review starts again on
+the other account. The PR comment says which account ran and when one ran out. Only when both are out
+does the run park, and it resumes when the first of the two resets.
+
+**Before you use it:** use accounts that are yours to use this way. Providers' terms differ on several
+personal accounts used by one person; a plan for a team, or a pay-as-you-go API key as the second
+account (`ANTHROPIC_API_KEY_2`), avoids the question.
+
+## 16. Working without outside help (PR-30)
+
+Everything the automation does is described in the repository itself, so a fresh Claude session (in
+GitHub Actions or on your computer) can work on it without this conversation's history:
+
+- **`docs/method/AUTOMATION.md`**, the operating manual: roles and invariants, every flow, workflow,
+  runner script, guard, prompt, label, status, marker and setting, what happens when something
+  fails, and how to change the automation safely. `guard:manual` fails any change that leaves it
+  behind, so it stays complete.
+- **`CLAUDE.md`** and **`docs/method/PRECEDENTS.md`**: the binding rules.
+- **When the automation misbehaves:** open a "Dev OS method fix" issue with the run link (the
+  reviewer diagnoses, Grok fixes, you merge), or run `claude` in the repository on your computer and
+  type `/devos-method <what went wrong>`: it reads the manual and the logs, explains the cause, and
+  opens the method-fix issue for you.
+- **When a setting is missing:** the "Dev OS: setup needed" issue lists it with steps.

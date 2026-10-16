@@ -1,13 +1,13 @@
 name: Dev OS method fix
-description: Something in the automation itself went wrong (a workflow, a check, a merge, a resume). The reviewer diagnoses it from the run logs and plans the fix; Grok builds it; you approve it.
+description: Something in the automation went wrong, or you want it to work differently (a new module, setting or behaviour). The reviewer diagnoses or designs it and plans the work; Grok builds it; you approve it.
 title: "Method fix: "
 labels: ["devos:method"]
 body:
   - type: textarea
     id: what
     attributes:
-      label: What went wrong
-      description: In plain words, what you saw. Paste the error or the message you did not understand.
+      label: What went wrong, or what should work differently
+      description: In plain words. For a problem, what you saw (paste the error). For an improvement, what the automation should do and why.
     validations:
       required: true
   - type: textarea
