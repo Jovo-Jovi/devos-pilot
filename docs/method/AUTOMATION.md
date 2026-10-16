@@ -161,10 +161,26 @@ Claude Code commands: `/devos-review`, `/devos-new-project`, `/devos-method`.
 - **Secrets** (names only; the full list with steps is `devos/setup.json`): `CURSOR_API_KEY`(`_2`),
   `CLAUDE_CODE_OAUTH_TOKEN`(`_2`) or `ANTHROPIC_API_KEY`(`_2`), `DEVOS_PAT`, `VERCEL_*`,
   `SUPABASE_*` + `DEVOS_BACKUP_PASSPHRASE`, `R2_*`, `FIREBASE_*`.
-- **Repository variables:** `DEVOS_PAUSED` (true stops every `devos-*` workflow; `ci.yml` still
-  checks main), `DEVOS_VERCEL`,
-  `DEVOS_PREVIEW_DB`, `DEVOS_SUPABASE`, `DEVOS_R2`, `DEVOS_FIREBASE`, `DEVOS_HEAVY` (notify | hold),
-  `DEVOS_CURSOR_ACCOUNT`, `DEVOS_CLAUDE_ACCOUNT`, `DEVOS_ACCOUNT_SWITCH` (auto | off).
+- **Repository variables** (GitHub → Settings → Secrets and variables → Actions → **Variables**).
+  A variable that is not set takes its default; changes apply from the next run.
+
+  | Variable | Values (default **bold**) | What it does | More |
+  |---|---|---|---|
+  | `DEVOS_PAUSED` | true · **false** | true stops every `devos-*` workflow (`ci.yml` still checks main) | §9 |
+  | `DEVOS_VERCEL` | true · **unset** | previews per attempt and production deploys on Vercel | SETUP §11.2 |
+  | `DEVOS_PREVIEW_DB` | true · **unset** | with the database module, previews use their own database | FULLSTACK_MODULE §2 |
+  | `DEVOS_SUPABASE` | true · **unset** | deploy step: database backup, then migrations | SETUP §12 |
+  | `DEVOS_R2` | true · **unset** | deploy step: storage preflight | SETUP §13 |
+  | `DEVOS_FIREBASE` | true · **unset** | deploy step: Firestore rules, then seed | SETUP §13 |
+  | `DEVOS_HEAVY` | **notify** · hold | heavy runs are announced; hold also waits for `/devos go` | SETUP §11.8 |
+  | `DEVOS_CURSOR_ACCOUNT` | **1** · 2 | the Cursor account (builder) a run starts with | SETUP §15 |
+  | `DEVOS_CLAUDE_ACCOUNT` | **1** · 2 | the Claude account (review, planning, revision) a run starts with | SETUP §15 |
+  | `DEVOS_ACCOUNT_SWITCH` | **auto** · off | auto: at a usage limit the run continues on the other account; off: only the chosen one (shared by Cursor and Claude) | SETUP §15 |
+
+  Accounts, in practice: nothing set = both accounts on, starting with 1 · only account 2 =
+  `DEVOS_CURSOR_ACCOUNT`/`DEVOS_CLAUDE_ACCOUNT` = 2 and `DEVOS_ACCOUNT_SWITCH` = off · for a single
+  run, the `cursor_account` / `claude_account` choices in devos-cycle's run form. A second account
+  exists only if its `_2` secret is set.
 - **`devos.config.json`:** `max_attempts`; `builder` (model family, effort by risk); `reviewer`
   (models and efforts by risk and gate, `modes.light/deep`, `deep_paths`, intake and method efforts);
   `required_checks` / `optional_checks`; `surfaces` (builder, builder_method, reviewer, intake,
