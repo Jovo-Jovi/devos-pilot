@@ -35,6 +35,16 @@ async function shot(
   await page.goto(route, { waitUntil: "load" });
   await expect(page.locator("ol.book-types li.book-type")).toHaveCount(bookTypes.length);
   await expect(page.locator("ol.book-types .cover").first()).toBeVisible();
+  const coverImage = page.locator("ol.book-types img");
+  await expect(coverImage).toHaveCount(1);
+  await expect
+    .poll(async () =>
+      coverImage.evaluate((node) => {
+        const picture = node as HTMLImageElement;
+        return picture.complete && picture.naturalWidth > 0;
+      }),
+    )
+    .toBe(true);
   await page.evaluate(() => document.fonts.ready);
   const path = join(process.cwd(), `.devos/screens/${name}.png`);
   mkdirSync(dirname(path), { recursive: true });
@@ -62,9 +72,11 @@ test("both locales list the seeded book types in sort order", async ({
   }
 });
 
-test("cover placeholders sit at the inline start and no image is shown", async ({
-  page,
-}) => {
+test("one cover and four placeholders", async ({ page }) => {
+  const novels = bookTypes.find((row) => row.id === "novels");
+  if (!novels) throw new Error("firebase seed has no novels book type");
+  const publicBase = process.env.R2_PUBLIC_BASE_URL?.replace(/\/+$/, "");
+  if (!publicBase) throw new Error("R2_PUBLIC_BASE_URL is not set");
   for (const locale of ["en", "ar"] as const) {
     await page.goto(`/${locale}/book-types`);
     const covers = page.locator("ol.book-types .cover");
@@ -72,7 +84,26 @@ test("cover placeholders sit at the inline start and no image is shown", async (
     for (let index = 0; index < bookTypes.length; index += 1) {
       await expect(covers.nth(index)).toHaveAttribute("aria-hidden", "true");
     }
-    await expect(page.locator("ol.book-types img")).toHaveCount(0);
+    const novelsName = locale === "ar" ? novels.nameAr : novels.nameEn;
+    const novelsEntry = page.locator("li.book-type", {
+      has: page.locator("h2", { hasText: novelsName }),
+    });
+    await expect(novelsEntry.locator("h2")).toHaveText(novelsName);
+    const image = novelsEntry.locator("img");
+    await expect(page.locator("ol.book-types img")).toHaveCount(1);
+    await expect(image).toHaveCount(1);
+    await expect(image).toHaveAttribute("alt", "");
+    const src = await image.getAttribute("src");
+    expect(src?.startsWith(`${publicBase}/book-types/novels/`)).toBe(true);
+    expect(src?.endsWith(".webp")).toBe(true);
+    await expect
+      .poll(async () =>
+        image.evaluate((node) => {
+          const picture = node as HTMLImageElement;
+          return picture.complete && picture.naturalWidth > 0;
+        }),
+      )
+      .toBe(true);
     const entry = page.locator("li.book-type").first();
     const cover = entry.locator(".cover");
     const text = entry.locator(":scope > div");
@@ -145,4 +176,25 @@ test("book-types responses set no cookie and load no outside script", async ({
       expect(new URL(src ?? "", origin).origin).toBe(origin);
     }
   }
+});
+
+test("public and staff responses admit the bucket on img-src and the cover is webp", async ({
+  page,
+  request,
+}) => {
+  const publicBase = process.env.R2_PUBLIC_BASE_URL;
+  if (!publicBase) throw new Error("R2_PUBLIC_BASE_URL is not set");
+  const origin = new URL(publicBase).origin;
+  for (const route of ["/ar/book-types", "/en/book-types", "/en/staff/sign-in"]) {
+    const response = await request.get(route);
+    const policy = response.headers()["content-security-policy"] ?? "";
+    expect(policy).toContain(`img-src 'self' data: ${origin};`);
+    expect(policy).toContain("connect-src 'self'");
+  }
+  await page.goto("/ar/book-types");
+  const src = await page.locator("ol.book-types img").getAttribute("src");
+  expect(src).toBeTruthy();
+  const image = await request.get(src ?? "");
+  expect(image.status()).toBe(200);
+  expect(image.headers()["content-type"]).toContain("image/webp");
 });

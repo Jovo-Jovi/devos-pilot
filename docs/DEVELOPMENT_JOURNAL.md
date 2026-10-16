@@ -180,3 +180,9 @@ The public page `/[locale]/book-types` lists the five seeded book types in sort 
 ## 2026-10-16 — T22 storage module, attempt 1 (builder, Grok 4.7)
 
 The storage module is on. `src/lib/r2/` holds a server-only S3 client, cover validation by the first bytes, and a re-encode to WebP at most 1200 px wide with all metadata removed. Three storage tests prove the re-encode, no enlargement, and a put, public read and delete against the local store. Nothing visible changes, and no page imports the module yet. `pnpm check` exits 0. Awaiting the deep review; a PASS stops at the human gate.
+
+---
+
+## 2026-10-16 — T23 covers on the public page, attempt 1 (builder, Grok 4.7)
+
+The public page `/[locale]/book-types` shows a cover from the bucket when a `book_type_covers` row exists, and the placeholder otherwise. `img-src` gains the origin of `R2_PUBLIC_BASE_URL`; every other directive, including `connect-src 'self'`, stays as it was. `pnpm check` exits 0 and `pnpm e2e` passes 61. Awaiting the deep review; a PASS stops at the human gate.
