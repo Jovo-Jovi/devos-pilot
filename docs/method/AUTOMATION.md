@@ -11,6 +11,17 @@ Precedence: `CLAUDE.md` and `docs/method/PRECEDENTS.md` (the binding rules) outr
 this manual describes how the repository implements them. Where they disagree, the precedent wins
 and this file is corrected.
 
+The method this machine runs is the handbook, `docs/method/DEV_OS_V2_REVIEWER.md`:
+
+- the five pillars (§1);
+- the journey J0–J11 (§3);
+- the documents in precedence order (§4);
+- ODs, carry-forwards and precedents (§5);
+- the fence and the verdict (§6);
+- gates (§10).
+
+`README.md` summarises the method and this manual on one page.
+
 ## 1. Roles and invariants
 
 | Role | Who | May change | Never |
@@ -136,9 +147,18 @@ or locale) · `data` (migrations, RLS, grants, server-only secret key, synthetic
 ## 6. Prompts, schemas, rules
 
 `devos/prompts/`: `builder.md`, `reviewer.md`, `intake.md`, `method.md`, `revise.md`, `doctor.md`.
-`devos/schemas/`: verdict, intake (also revise and method), doctor. Builder rules: `.cursor/rules/`
-(`70-supabase`, `71-r2`, `72-firebase` for the modules). Reviewer rules: `CLAUDE.md`. Interactive
-Claude Code commands: `/devos-review`, `/devos-new-project`, `/devos-method`.
+`devos/schemas/`: verdict, intake (also revise and method), doctor.
+
+| Surface | Files |
+|---|---|
+| Builder | rules in `.cursor/rules/` (`70-supabase`, `71-r2` and `72-firebase` for the modules) |
+| | skills in `.cursor/skills/`: `devos-execute-fence`, `devos-task-report` (the report format, PR-10), `devos-compose-ui` |
+| | hooks in `.cursor/hooks.json` and `.cursor/hooks/` (shell policy; guards on stop) |
+| | CLI permissions in `.cursor/cli.json` |
+| | MCP: `.cursor/mcp.example.json` in the IDE; `devos/ci/mcp.ci.json` in runs |
+| Reviewer | rules in `CLAUDE.md`; permissions in `.claude/settings.json` (reviews and fences only) |
+| | interactive Claude Code commands in `.claude/commands/`: `/devos-review`, `/devos-new-project`, `/devos-method` |
+| Issue forms | `.github/ISSUE_TEMPLATE/`: `devos-request.yml` ("Dev OS change request"), `devos-method-fix.yml` ("Dev OS method fix") |
 
 ## 7. State the runner keeps
 
@@ -232,3 +252,36 @@ Recipes:
 - **A new setting:** an item in `devos/setup.json` (method) or `docs/setup-items.json` (product).
 - **A new workflow or label:** listed in §3 or §7; anything a bot push should trigger must be
   dispatched explicitly.
+
+## 11. A finished project, and the next one
+
+**The end of a project.** After the last gate merge, `devos-advance` dispatches the cycle. `resolve`
+reports "every task in docs/PHASES.md is ticked" and the cycle stops. Nothing else runs until new
+rows exist: `devos-deploy` has already shipped that merge, and `devos-resume` finds nothing parked.
+
+Close-out is the human's commit:
+
+- `docs/SESSION_CONTEXT.md` records the last verdict and the finished state. Normally the next
+  task's first step records a verdict, and there is none.
+- Open carry-forwards stay listed with their owners.
+
+**More work later.** File a "Dev OS change request". Its intake PR adds the rows, and your merge
+starts the cycle again.
+
+**The next project.** Run `/devos-new-project` in a new private repository, after copying these
+method files from this one:
+
+- `scripts/devos/` and `scripts/guards/`
+- `devos/`
+- `.github/workflows/` and `.github/ISSUE_TEMPLATE/`
+- `.cursor/`
+- `.claude/commands/`
+- `devos.config.json`
+- from `docs/method/`: the handbook, `FULLSTACK_MODULE.md`, this manual, and `PRECEDENTS.md`
+
+Keep the precedent rows: they are the rules the scripts implement and this manual cites. The new
+project rewrites PR-01 for its environment, and its own rulings continue from the live maximum.
+`guard:manual` fails the new repository if this manual is missing.
+
+Copy `.claude/settings.json` last, once the bootstrap is written: it locks the reviewer to reviews
+and fences. `SETUP.md` §10 and `README.md` give the same steps.

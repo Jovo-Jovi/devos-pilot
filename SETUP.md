@@ -179,9 +179,18 @@ connected, it can read the PRs and verdict files directly.
 
 ## 10. The next real project
 
-Copy `.claude/commands/devos-new-project.md` to `~/.claude/commands/`. In a new repo with the
-pilot's `scripts/`, `devos/`, `.github/workflows/` and the handbook copied in, run
-`/devos-new-project <brief>`. It runs the fit research, **checks the Cursor marketplace and the
+Copy `.claude/commands/devos-new-project.md` to `~/.claude/commands/`. Create a new private repo
+and copy in the pilot's method files (the list is in `docs/method/AUTOMATION.md` §11):
+
+- `scripts/devos/` and `scripts/guards/`
+- `devos/`
+- `.github/workflows/` and `.github/ISSUE_TEMPLATE/`
+- `.cursor/`
+- `.claude/commands/`
+- `devos.config.json`
+- the handbook, `FULLSTACK_MODULE.md`, `AUTOMATION.md` and `PRECEDENTS.md`
+
+Then run `/devos-new-project <brief>`. It runs the fit research, **checks the Cursor marketplace and the
 model list for that project**, writes the documents and the first fence, and hands you the ODs to
 sign.
 

@@ -29,7 +29,9 @@ Work in this order. Ask me only what research cannot answer, once, at the end of
    glossary (with the forbidden-noun code block `guard:naming` reads), decisions (ODs including
    the automated relay OD and the tooling OD), scope, the models the profile needs, the design
    system, `PHASES.md` (task table with Risk and Gate columns plus phase outlines),
-   `SESSION_CONTEXT.md`, journal, precedents (seed the environment profile), carry-forwards.
+   `SESSION_CONTEXT.md`, journal, carry-forwards (empty), and precedents. For precedents, keep the
+   copied `PRECEDENTS.md` rows: they are the rules the runner implements and `AUTOMATION.md` cites.
+   Rewrite PR-01 for this project's environment. New rulings continue from the live maximum.
 5. **Configure the surfaces**: `devos.config.json` (models, surfaces), `.cursor/rules/*` (fill the
    vocabulary and environment rules), `.cursor/mcp.example.json` and `devos/ci/mcp.ci.json` from
    step 3, `.cursor/cli.json` deny list, `CLAUDE.md` from the §15.1 template.
@@ -44,8 +46,19 @@ Work in this order. Ask me only what research cannot answer, once, at the end of
 Never write application code. Everything you produce is documents, configuration and the first fence.
 
 Where to run this: in the **new** project's repository, not in the pilot. Copy this command to
-`~/.claude/commands/` so it is available everywhere, then copy the pilot's `scripts/`, `devos/`,
-`.github/workflows/`, `docs/method/DEV_OS_V2_REVIEWER.md` and `docs/method/FULLSTACK_MODULE.md` into
-the new repository (the module stays inactive until `supabase/config.toml` exists). Copy the
+`~/.claude/commands/` so it is available everywhere. Then copy the pilot's method files into the
+new repository (the list is in `docs/method/AUTOMATION.md` §11):
+
+- `scripts/devos/` and `scripts/guards/`
+- `devos/`
+- `.github/workflows/` and `.github/ISSUE_TEMPLATE/`
+- `.cursor/`
+- `.claude/commands/`
+- `devos.config.json`
+- from `docs/method/`: `DEV_OS_V2_REVIEWER.md`, `FULLSTACK_MODULE.md`, `AUTOMATION.md` and
+  `PRECEDENTS.md`
+
+The modules stay inactive until their files exist (`supabase/config.toml`, `firebase.json`,
+`src/lib/r2/`). Copy the
 pilot's `.claude/settings.json` **last**, after the bootstrap is written: its deny rules lock the
 reviewer out of everything but reviews and fences.

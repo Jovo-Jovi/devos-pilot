@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P06 Book types and covers (J6) · **Last verdict:** T24 PASS a3 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** finished (P01–P06 complete, 2026-10-16) · **Last verdict:** T25 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -31,8 +31,10 @@
 | T22 | Storage module (R2): server-only bucket client, image validation and re-encoding, storage tests | PASS a1 — docs/reviews/T22-a1.md (storage keys signed by the human's merge) |
 | T23 | Public page shows covers from the bucket; CSP img-src gains the bucket origin | PASS a3 — docs/reviews/T23-a3.md (headers signed by the human's merge) |
 | T24 | Staff cover editor: upload, replace, remove; staff home link | PASS a3 — docs/reviews/T24-a3.md (staff writes signed by the human's merge) |
-| T25 | Whole-flow end-to-end proof and production checklist | built — awaiting the deep review and the `G-Book-types` merge |
+| T25 | Whole-flow end-to-end proof and production checklist | PASS a1 — docs/reviews/T25-a1.md (gate G-Book-types signed by the human's merge) |
 
 ## Next action
 
-T25 is built on `task/T25` and awaits the deep review and the `G-Book-types` merge.
+None: the pilot is finished. Every task in `docs/PHASES.md` is ticked and production was deployed
+from the T25 merge. New work starts with a "Dev OS change request"; the next project starts from
+`docs/method/AUTOMATION.md` §11.
