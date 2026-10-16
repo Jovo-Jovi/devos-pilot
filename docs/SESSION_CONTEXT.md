@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P06 Book types and covers (J5) · **Last verdict:** T20 PASS a3 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P06 Book types and covers (J5) · **Last verdict:** T21 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -27,8 +27,9 @@
 | T18 | Whole-zone end-to-end proof against the CI database | PASS a1 — docs/reviews/T18-a1.md (gate G-Staff-editor signed by the human's merge) |
 | T19 | Firestore module: rules denying every client, rules tests, server-only reader, book-types seed | PASS a1 — docs/reviews/T19-a1.md (rules file reviewed at the human's merge) |
 | T20 | Public book-types page from Firestore, with the cover placeholder, linked from home | PASS a3 — docs/reviews/T20-a3.md |
-| T21 | Migration: book_type_covers link table with RLS and pgTAP proof | built — awaiting verdict (schema change: the human's merge signs it) |
+| T21 | Migration: book_type_covers link table with RLS and pgTAP proof | PASS a1 — docs/reviews/T21-a1.md (schema change signed by the human's merge) |
+| T22 | Storage module (R2): server-only bucket client, image validation and re-encoding, storage tests | built — awaiting verdict |
 
 ## Next action
 
-T21 is built on `task/T21` and awaits review. The migration adds `public.book_type_covers` with row level security and its pgTAP proof. Nothing visible changes, and no page reads the table yet. This is a schema change: the human's merge signs it. Next is T22, the storage module.
+T22 is built on `task/T22` and awaits the deep review. The storage module is server-only code in `src/lib/r2/`: the bucket client, cover-image validation and re-encoding, and the storage tests. Nothing visible changes, and no page imports it yet. This task is risk 3 (storage keys): a PASS stops at the human gate. Next is T23, covers on the public page.
