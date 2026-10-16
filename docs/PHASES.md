@@ -30,7 +30,7 @@ The runner reads the table below, and `guard:phases` checks it.
 | T19 | P06 | J4 | Firestore module: rules denying every client, rules tests, server-only reader, book-types seed | 3 | — | [x] | PASS a1 — docs/reviews/T19-a1.md |
 | T20 | P06 | J5 | Public book-types page from Firestore, with the cover placeholder, linked from home | 2 | — | [x] | PASS a3 — docs/reviews/T20-a3.md |
 | T21 | P06 | J4 | Migration: book_type_covers link table with RLS and pgTAP proof | 3 | — | [x] | PASS a1 — docs/reviews/T21-a1.md |
-| T22 | P06 | J4 | Storage module: server-only bucket client, image validation and re-encoding, storage tests | 3 | — | [ ] | — |
+| T22 | P06 | J4 | Storage module: server-only bucket client, image validation and re-encoding, storage tests | 3 | — | [x] | PASS a1 — docs/reviews/T22-a1.md |
 | T23 | P06 | J5 | Public page shows covers from the bucket; CSP img-src gains the bucket origin | 3 | — | [ ] | — |
 | T24 | P06 | J6 | Staff cover editor: upload, replace, remove; staff home link | 3 | — | [ ] | — |
 | T25 | P06 | J6 | Whole-flow end-to-end proof and production checklist | 2 | G-Book-types | [ ] | — |

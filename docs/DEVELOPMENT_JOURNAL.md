@@ -174,3 +174,9 @@ The public page `/[locale]/book-types` lists the five seeded book types in sort 
 ## 2026-10-16 — T21 book_type_covers migration, attempt 1 (builder, Grok 4.7)
 
 `public.book_type_covers` links a book type to its cover object key. Anonymous visitors can read every row; only staff at AAL2 can insert, update and delete, proven by 36 pgTAP assertions (`Files=3, Tests=99` with the earlier suites). The table holds nothing about a person, and nothing in the app reads it yet. `pnpm check` exits 0. Awaiting the deep review; a PASS stops at the human gate.
+
+---
+
+## 2026-10-16 — T22 storage module, attempt 1 (builder, Grok 4.7)
+
+The storage module is on. `src/lib/r2/` holds a server-only S3 client, cover validation by the first bytes, and a re-encode to WebP at most 1200 px wide with all metadata removed. Three storage tests prove the re-encode, no enlargement, and a put, public read and delete against the local store. Nothing visible changes, and no page imports the module yet. `pnpm check` exits 0. Awaiting the deep review; a PASS stops at the human gate.
