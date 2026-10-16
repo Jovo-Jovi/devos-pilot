@@ -13,12 +13,17 @@
     "latestNotices": "Latest notices"
   },
   "link": {
-    "allNotices": "All notices"
+    "allNotices": "All notices",
+    "bookTypes": "Book types at the library"
+  },
+  "bookTypes": {
+    "title": "Book types"
   },
   "state": {
     "pendingHours": "Opening hours will be published soon.",
     "pendingNotices": "There are no published notices right now.",
-    "closed": "Closed"
+    "closed": "Closed",
+    "pendingBookTypes": "Book types will be published soon."
   },
   "status": {
     "openUntil": "Open now, until {time}",

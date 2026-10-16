@@ -162,3 +162,9 @@ Staff at AAL2 see the week from Saturday to Friday and add, change and remove an
 ## 2026-10-16 — T19 Firestore module, attempt 1 (builder, Grok 4.7)
 
 The Firestore module is on. `firestore.rules` denies every client, proven by 10 emulator tests, and `firebase/seed/book_types.json` holds 5 synthetic book types. The server reads them with `firebase-admin` in `src/lib/firebase/` (each file starts with `import "server-only"`). Nothing visible changes, and no page imports the reader yet. `pnpm check` exits 0. Awaiting the deep review; a PASS stops at the human gate.
+
+---
+
+## 2026-10-16 — T20 public book-types page, attempt 2 (builder, Grok 4.7)
+
+The public page `/[locale]/book-types` lists the five seeded book types in sort order, each with the cover placeholder, and the home page links to it. The list is read on the server through the `book-types` cache tag. Attempt 2 fixes the two e2e locators from the attempt 1 review. `pnpm check` exits 0 and `pnpm e2e` passes 60. Awaiting verdict.

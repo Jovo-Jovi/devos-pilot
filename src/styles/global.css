@@ -97,6 +97,15 @@ html[dir="ltr"] .track { background-image: repeating-linear-gradient(to right, v
 html[lang="en"] .notice :is(h2, h3) { word-spacing: normal; }
 .notice p { margin: 0; color: var(--color-ink-muted); max-inline-size: 60ch; }
 
+/* Book types */
+.book-types { list-style: none; margin: 0; padding: 0; }
+.book-type { display: grid; grid-template-columns: 4.5rem 1fr; column-gap: var(--space-4); align-items: center; padding-block: var(--space-5); }
+.book-type + .book-type { border-block-start: 1px solid var(--color-line); }
+.book-type h2 { font-size: var(--text-3); font-weight: 600; line-height: 1.35; margin: 0 0 var(--space-2); }
+html[lang="en"] .book-type h2 { word-spacing: normal; }
+.book-type p { margin: 0; color: var(--color-ink-muted); }
+.cover { display: block; inline-size: 4.5rem; aspect-ratio: 3 / 4; border-radius: var(--radius-stamp); border: 1px solid var(--color-line); overflow: hidden; background: var(--color-lapis-wash); }
+
 /* Footer */
 .site-footer { margin-block-start: var(--space-7); background: var(--color-surface); border-block-start: 1px solid var(--color-line); }
 .site-footer .wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--space-5); padding-block: var(--space-6); }
