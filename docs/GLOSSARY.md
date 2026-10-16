@@ -9,6 +9,7 @@
 | `LibraryNotice` | One published announcement from the library: closure, event, new arrival | إعلان المكتبة |
 | `OpeningSlot` | One opening period on one day of the week | فترة عمل |
 | `LibraryProfile` | The library's published name, address and phone (business data, never personal data) | بيانات المكتبة |
+| `BookType` | One kind of book the library holds (novels, poetry, history…), listed on the book-types page; read from Firestore, never written by the app | نوع الكتب |
 
 ## 2. Terms
 
