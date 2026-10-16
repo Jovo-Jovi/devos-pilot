@@ -1,6 +1,8 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
+import { readBookTypes } from "@/lib/firebase/book-types";
 import { createPublicReadClient } from "@/lib/supabase/public";
+import type { BookType } from "./book-types";
 import { orderOpeningSlots } from "./order";
 import { libraryNoticesFromRows, openingSlotsFromRows } from "./rows";
 import type { LibraryNotice, OpeningSlot } from "./schema";
@@ -32,4 +34,12 @@ export async function readOpeningSlots(): Promise<OpeningSlot[]> {
     .order("opens_at", { ascending: true });
   if (error) throw new Error(`public.opening_slots: ${error.message}`);
   return orderOpeningSlots(openingSlotsFromRows(data));
+}
+
+/** DATA_MODEL §12: book types in sort order. The list is read at request time (OD-11 §4). */
+export async function readLibraryBookTypes(): Promise<BookType[]> {
+  "use cache";
+  cacheTag("book-types");
+  cacheLife("hours");
+  return (await readBookTypes()).bookTypes;
 }

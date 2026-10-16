@@ -13,12 +13,17 @@
     "latestNotices": "أحدث الإعلانات"
   },
   "link": {
-    "allNotices": "كل الإعلانات"
+    "allNotices": "كل الإعلانات",
+    "bookTypes": "أنواع الكتب في المكتبة"
+  },
+  "bookTypes": {
+    "title": "أنواع الكتب"
   },
   "state": {
     "pendingHours": "ستُنشر مواعيد العمل قريبًا.",
     "pendingNotices": "لا توجد إعلانات منشورة حاليًا.",
-    "closed": "مغلقة"
+    "closed": "مغلقة",
+    "pendingBookTypes": "ستُنشر أنواع الكتب قريبًا."
   },
   "status": {
     "openUntil": "مفتوحة الآن حتى {time}",

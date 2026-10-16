@@ -69,6 +69,11 @@ export default async function LocalePage({
           <Link className="all-notices" href={`/${locale}/notices`}>
             {messages.link.allNotices}
           </Link>
+          <p>
+            <Link className="all-notices" href={`/${locale}/book-types`}>
+              {messages.link.bookTypes}
+            </Link>
+          </p>
         </section>
       </main>
       <SiteFooter locale={locale} libraryProfile={libraryProfile} />
