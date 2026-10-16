@@ -88,6 +88,8 @@ jobs:
           node-version: 22
       - run: npm install -g @anthropic-ai/claude-code
       - name: Acknowledge
+        # PR-31: automatic resumes (workflow_dispatch) post nothing; the first run already said it.
+        if: github.event_name != 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -137,12 +139,17 @@ jobs:
           fi
       - name: Reviewer — plan the request
         env:
-          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_OAUTH_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CLAUDE_APIKEY_1: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_OAUTH_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+          CLAUDE_APIKEY_2: ${{ secrets.ANTHROPIC_API_KEY_2 }}
+          DEVOS_CLAUDE_ACCOUNT: ${{ vars.DEVOS_CLAUDE_ACCOUNT || '1' }}
+          DEVOS_ACCOUNT_SWITCH: ${{ vars.DEVOS_ACCOUNT_SWITCH || 'auto' }}
           DEVOS_ISSUE: ${{ github.event.issue.number }}
         run: |
-          [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
-          [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
+          . scripts/devos/accounts.sh
+          accounts=$(devos_accounts claude)
+          [ -n "$accounts" ] || echo "::error::no Claude credential: set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY (or the _2 pair)"
           MODEL=$(node -e 'console.log(require("./devos.config.json").reviewer.gate_model)')
           # A request marked "Small change" is planned at high effort, anything else at intake_effort (PR-20).
           EFFORT=$(node -e '
@@ -151,14 +158,28 @@ jobs:
             console.log(small ? (r.intake_effort_small || "high") : (r.intake_effort || "xhigh"));')
           if [ "$MODE" = "method" ]; then EFFORT=$(node -e 'console.log(require("./devos.config.json").reviewer.method_effort || "high")'); fi
           echo "$MODE: $MODEL at effort $EFFORT (resume: $RESUME)"
-          DEVOS_INTAKE_RESUME="$RESUME" node scripts/devos/render-prompt.mjs "$MODE" - - --out .devos/intake-prompt.md
           set +e
-          claude -p "$(cat .devos/intake-prompt.md)" --model "$MODEL" --effort "$EFFORT" --output-format json \
-            --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 120 \
-            --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
-            --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
-            > .devos/intake.json 2> .devos/intake.err
-          echo "reviewer exit code: $?"
+          # PR-29: on a usage limit the planning continues at once on the other Claude account, from
+          # the partial plan the first run left in the tree (rendered as a resume).
+          resume_now="$RESUME"
+          for acc in $accounts; do
+            devos_use_claude "$acc"
+            DEVOS_INTAKE_RESUME="$resume_now" node scripts/devos/render-prompt.mjs "$MODE" - - --out .devos/intake-prompt.md
+            claude -p "$(cat .devos/intake-prompt.md)" --model "$MODEL" --effort "$EFFORT" --output-format json \
+              --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 120 \
+              --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
+              --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
+              > .devos/intake.json 2> .devos/intake.err
+            rc=$?
+            echo "reviewer exit code: $rc (Claude account $acc)"
+            if devos_limited .devos/intake.json .devos/intake.err "$rc"; then
+              mkdir -p .devos/limits; cat .devos/intake.json .devos/intake.err > ".devos/limits/claude-$acc.txt"
+              devos_note "Planning: Claude account $acc reached its usage limit."
+              resume_now=true
+              continue
+            fi
+            break
+          done
       - name: Guards — intake surface and ledger structure
         id: g
         continue-on-error: true
@@ -206,14 +227,27 @@ jobs:
               git push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$BR"
             fi
           fi
+          WAIT_COMMENT=""
           if [ "$D" = "limit" ]; then
-            NB=$(node --input-type=module -e '
-              import { notBefore, readText } from "./scripts/devos/limits.mjs";
-              console.log(notBefore(readText(".devos/intake.json") + "\n" + readText(".devos/intake.err"), 60));')
+            # PR-31: the earlier wait comment on this issue (if any) is updated, not repeated, and a limit
+            # that states no reset time is retried later each time (60, 120, 240 … minutes, capped).
+            prev=$(gh api "repos/$REPO/issues/$ISSUE/comments?per_page=100" \
+              --jq '[.[] | select(.body | contains("<!-- devos-intake-resume issue='"$ISSUE"' "))] | last | "\(.id) \(.body)"' 2>/dev/null || echo "")
+            WAIT_COMMENT=$(echo "$prev" | head -n 1 | awk '{print $1}' | grep -E '^[0-9]+$' || true)
+            CHECKS=$(echo "$prev" | grep -oE 'checks=[0-9]+' | tail -1 | cut -d= -f2); CHECKS=${CHECKS:-0}
+            CHECKS=$(( CHECKS + 1 ))
+            NB=$(CHECKS="$CHECKS" node --input-type=module -e '
+              import { earliestNotBefore, readText } from "./scripts/devos/limits.mjs";
+              import { readFileSync } from "node:fs";
+              const r = JSON.parse(readFileSync("./devos.config.json", "utf8")).resume ?? {};
+              const base = r.default_wait_minutes ?? 60, cap = r.max_backoff_minutes ?? 360;
+              const backoff = Math.min(base * 2 ** (Number(process.env.CHECKS) - 1), cap);
+              console.log(earliestNotBefore("claude", readText(".devos/intake.json") + "\n" + readText(".devos/intake.err"), backoff));')
             echo "not_before=$NB" >> "$GITHUB_OUTPUT"
             gh label create "devos:quota-wait" --color fbca04 --force --repo "$REPO" >/dev/null
             gh issue edit "$ISSUE" --repo "$REPO" --add-label "devos:quota-wait"
-            printf '\n\nResumes after %s (UTC).\n<!-- devos-intake-resume issue=%s not_before=%s -->\n' "$NB" "$ISSUE" "$NB" >> .devos/intake-comment.md
+            printf '\n\nResumes after %s (UTC). Checked %s time(s) so far; last check %s (UTC).\n<!-- devos-intake-resume issue=%s not_before=%s checks=%s -->\n' \
+              "$NB" "$CHECKS" "$(date -u +%Y-%m-%dT%H:%MZ)" "$ISSUE" "$NB" "$CHECKS" >> .devos/intake-comment.md
           fi
           if [ "$D" = "accept" ]; then
             git add -A
@@ -236,7 +270,12 @@ jobs:
             echo "" >> .devos/intake-comment.md
             echo "Intake PR: $(gh pr view "$BR" --repo "$REPO" --json url --jq .url)" >> .devos/intake-comment.md
           fi
-          gh issue comment "$ISSUE" --repo "$REPO" --body-file .devos/intake-comment.md
+          if [ -n "$WAIT_COMMENT" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$WAIT_COMMENT" -F body=@.devos/intake-comment.md > /dev/null
+            echo "Updated the wait comment on #$ISSUE instead of adding a new one."
+          else
+            gh issue comment "$ISSUE" --repo "$REPO" --body-file .devos/intake-comment.md
+          fi
       - if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -268,13 +307,22 @@ jobs:
           REPO: ${{ github.repository }}
           ISSUE: ${{ needs.intake.outputs.issue }}
           NOT_BEFORE: ${{ needs.intake.outputs.not_before }}
+          IS_PRIVATE: ${{ github.event.repository.private }}
         run: |
           max_min=$(node -e 'console.log(require("./devos.config.json").resume?.inline_wait_max_minutes ?? 330)')
           now=$(date -u +%s)
           target=$(date -u -d "$NOT_BEFORE" +%s 2>/dev/null || echo $((now + 3600)))
           wait=$(( target - now ))
           if [ "$wait" -gt $(( max_min * 60 )) ]; then
-            echo "::notice title=Dev OS::Issue #$ISSUE resets at $NOT_BEFORE, beyond the inline wait; devos-resume will pick it up."
+            # PR-31: a long wait is relayed by devos-wait (GitHub's schedule is best effort). On a private
+            # repository sleeping costs runner minutes, so resume.relay decides.
+            relay=$(node -e 'console.log(require("./devos.config.json").resume?.relay ?? "public")')
+            if [ "$relay" = "always" ] || { [ "$relay" = "public" ] && [ "$IS_PRIVATE" != "true" ]; }; then
+              gh workflow run devos-wait.yml --repo "$REPO" --ref main -f kind=intake -f not_before="$NOT_BEFORE" -f issue="$ISSUE"
+              echo "::notice title=Dev OS::Issue #$ISSUE resets at $NOT_BEFORE; devos-wait keeps waiting and resumes it then."
+            else
+              echo "::notice title=Dev OS::Issue #$ISSUE resets at $NOT_BEFORE; devos-resume (scheduled, best effort) picks it up, or run devos-resume by hand after that time."
+            fi
             exit 0
           fi
           if [ "$wait" -gt 0 ]; then echo "Waiting $(( wait / 60 )) minutes, until $NOT_BEFORE (UTC)."; sleep "$wait"; fi
@@ -363,23 +411,32 @@ jobs:
           printf '%s\n' "${NOTE#/devos revise}" > .devos/revision.md
       - name: Reviewer — reissue the fence with the revision
         env:
-          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_OAUTH_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CLAUDE_APIKEY_1: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_OAUTH_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+          CLAUDE_APIKEY_2: ${{ secrets.ANTHROPIC_API_KEY_2 }}
+          DEVOS_CLAUDE_ACCOUNT: ${{ vars.DEVOS_CLAUDE_ACCOUNT || '1' }}
+          DEVOS_ACCOUNT_SWITCH: ${{ vars.DEVOS_ACCOUNT_SWITCH || 'auto' }}
           TASK: ${{ steps.pr.outputs.task }}
           ATTEMPT: ${{ steps.n.outputs.attempt }}
         run: |
-          [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
-          [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
+          . scripts/devos/accounts.sh
+          accounts=$(devos_accounts claude)
           MODEL=$(node -e 'import("./scripts/devos/lib.mjs").then(({parsePhases,reviewerModel})=>{const r=parsePhases().rows.find(x=>x.task===process.env.TASK);console.log(reviewerModel(r))})')
           EFFORT=$(node -e 'import("./scripts/devos/lib.mjs").then(({parsePhases,reviewerEffort})=>{const r=parsePhases().rows.find(x=>x.task===process.env.TASK);console.log(reviewerEffort(r))})')
           node scripts/devos/render-prompt.mjs revise "$TASK" "$ATTEMPT" --out .devos/revise-prompt.md
           set +e
-          claude -p "$(cat .devos/revise-prompt.md)" --model "$MODEL" --effort "$EFFORT" --output-format json \
-            --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 60 \
-            --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
-            --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
-            > .devos/revise.json 2> .devos/revise.err
-          echo "reviewer exit code: $?"
+          for acc in $accounts; do
+            devos_use_claude "$acc"
+            claude -p "$(cat .devos/revise-prompt.md)" --model "$MODEL" --effort "$EFFORT" --output-format json \
+              --json-schema "$(cat devos/schemas/intake.schema.json)" --permission-mode dontAsk --max-turns 60 \
+              --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
+              --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
+              > .devos/revise.json 2> .devos/revise.err
+            rc=$?
+            echo "reviewer exit code: $rc (Claude account $acc)"
+            devos_limited .devos/revise.json .devos/revise.err "$rc" || break
+          done
       - name: Guard — revise surface
         run: node scripts/devos/guard-surfaces.mjs revise
       - name: Push the reissued fence and rebuild

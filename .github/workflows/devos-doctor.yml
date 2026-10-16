@@ -115,8 +115,8 @@ jobs:
         continue-on-error: true
         timeout-minutes: 20
         env:
-          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+          APIKEY: ${{ secrets.ANTHROPIC_API_KEY || secrets.ANTHROPIC_API_KEY_2 }}
         run: |
           [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
           [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"

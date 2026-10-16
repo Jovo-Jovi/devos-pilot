@@ -8,7 +8,7 @@
 // Usage: node scripts/devos/builder-status.mjs --task T01 --attempt 1 --exit <code> [--review-only true]
 import { writeFileSync, mkdirSync } from "node:fs";
 import { P, emit, config } from "./lib.mjs";
-import { looksLikeLimit, readText, resumeMarker, parseJsonLoose, notBefore } from "./limits.mjs";
+import { looksLikeLimit, readText, resumeMarker, parseJsonLoose, earliestNotBefore } from "./limits.mjs";
 
 const arg = (n, d = "") => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] ?? d : d; };
 const task = arg("task");
@@ -29,7 +29,8 @@ const failed = exit !== 0 || !out.trim() || json?.is_error === true || json?.sub
 const detail = String(json?.result ?? json?.error ?? "").slice(0, 400) || err.trim().split(/\r?\n/).slice(-5).join(" ").slice(0, 400);
 
 let state = "ok";
-const waitUntil = notBefore(`${out}\n${err}`, config().resume?.default_wait_minutes ?? 60);
+// PR-29: with a second Cursor account, both were tried; resume when the first one resets.
+const waitUntil = earliestNotBefore("cursor", `${out}\n${err}`, config().resume?.default_wait_minutes ?? 60);
 let reason = "builder finished";
 if (failed) {
   state = looksLikeLimit(out, err) ? "quota" : "error";

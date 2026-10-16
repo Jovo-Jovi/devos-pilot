@@ -11,8 +11,9 @@ import boundary from "./boundary.mjs";
 import literals from "./literals.mjs";
 import data from "./data.mjs";
 import services from "./services.mjs";
+import manual from "./manual.mjs";
 
-const GUARDS = { secrets, phases, naming, design, i18n, boundary, literals, data, services };
+const GUARDS = { secrets, phases, naming, design, i18n, boundary, literals, data, services, manual };
 const onlyIdx = process.argv.indexOf("--only");
 const only = onlyIdx >= 0 ? process.argv[onlyIdx + 1].split(",") : Object.keys(GUARDS);
 

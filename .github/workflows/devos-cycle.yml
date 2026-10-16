@@ -49,6 +49,16 @@ on:
         type: boolean
         required: false
         default: false
+      cursor_account:
+        description: "Cursor account to start with (default = variable DEVOS_CURSOR_ACCOUNT, else 1). On a usage limit the run switches to the other (PR-29)"
+        type: choice
+        options: [default, "1", "2"]
+        default: default
+      claude_account:
+        description: "Claude account to start with (default = variable DEVOS_CLAUDE_ACCOUNT, else 1). On a usage limit the run switches to the other (PR-29)"
+        type: choice
+        options: [default, "1", "2"]
+        default: default
 
 concurrency:
   group: devos-cycle
@@ -148,6 +158,10 @@ jobs:
       REPO: ${{ github.repository }}
       REVIEW_ONLY: ${{ inputs.review_only && 'true' || 'false' }}
       METHOD: ${{ needs.resolve.outputs.method }}
+      # PR-29: which account each agent starts with, and whether it switches on a usage limit.
+      DEVOS_CURSOR_ACCOUNT: ${{ (inputs.cursor_account != 'default' && inputs.cursor_account) || vars.DEVOS_CURSOR_ACCOUNT || '1' }}
+      DEVOS_CLAUDE_ACCOUNT: ${{ (inputs.claude_account != 'default' && inputs.claude_account) || vars.DEVOS_CLAUDE_ACCOUNT || '1' }}
+      DEVOS_ACCOUNT_SWITCH: ${{ vars.DEVOS_ACCOUNT_SWITCH || 'auto' }}
     steps:
       # The agents never see a git credential: checkout keeps none, and only the push and gh
       # steps below receive a token (PR-04).
@@ -198,9 +212,12 @@ jobs:
       - name: Resolve the builder model (fence effort/fast, checked against `agent models`)
         id: bm
         env:
-          CURSOR_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_KEY_1: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_KEY_2: ${{ secrets.CURSOR_API_KEY_2 }}
         run: |
-          if [ -n "$CURSOR_KEY" ]; then CURSOR_API_KEY="$CURSOR_KEY" agent models > .devos/models.txt 2>&1 || true; fi
+          . scripts/devos/accounts.sh
+          first=$(devos_accounts cursor | cut -d' ' -f1)
+          if [ -n "$first" ]; then devos_use_cursor "$first"; agent models > .devos/models.txt 2>&1 || true; fi
           node scripts/devos/builder-model.mjs --task "$TASK" --effort "${{ inputs.effort || 'fence' }}" --fast "${{ inputs.fast || 'fence' }}"
 
       - name: Firebase CLI and Java 21 (Firebase module, PR-26)
@@ -230,17 +247,19 @@ jobs:
         if: env.REVIEW_ONLY != 'true'
         timeout-minutes: 80
         env:
-          CURSOR_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_KEY_1: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_KEY_2: ${{ secrets.CURSOR_API_KEY_2 }}
           MODEL: ${{ steps.bm.outputs.model }}
           DEVOS_BUILDER_MODEL: ${{ steps.bm.outputs.model }}
           DEVOS_BUILDER_EFFORT: ${{ steps.bm.outputs.effort }}
           DEVOS_BUILDER_FAST: ${{ steps.bm.outputs.fast }}
         run: |
-          test -n "$CURSOR_KEY" || { echo "::error::secret CURSOR_API_KEY is not set"; exit 1; }
-          export CURSOR_API_KEY="$CURSOR_KEY"
+          . scripts/devos/accounts.sh
+          accounts=$(devos_accounts cursor)
+          [ -n "$accounts" ] || { echo "::error::no Cursor key: set secret CURSOR_API_KEY (and optionally CURSOR_API_KEY_2)"; exit 1; }
           # Every active module's local names and throwaway keys (PR-17, PR-26).
           for f in .devos/*.env; do [ -f "$f" ] && { set -a; . "$f"; set +a; }; done
-          echo "builder: $MODEL (effort ${DEVOS_BUILDER_EFFORT}, fast ${DEVOS_BUILDER_FAST}, from ${{ steps.bm.outputs.source }}) ${{ steps.bm.outputs.note }}"
+          echo "builder: $MODEL (effort ${DEVOS_BUILDER_EFFORT}, fast ${DEVOS_BUILDER_FAST}, from ${{ steps.bm.outputs.source }}) ${{ steps.bm.outputs.note }} · Cursor accounts in order: $accounts"
           node scripts/devos/render-prompt.mjs builder "$TASK" "$ATTEMPT" --out .devos/builder-prompt.md
           set +e
           # Heartbeat: Cursor's output goes to a file, so print progress every minute.
@@ -248,12 +267,27 @@ jobs:
               echo "Cursor is working on $TASK: $(( ($(date +%s) - t0) / 60 )) min, $(git status --porcelain | wc -l) file(s) changed so far"
             done ) &
           hb=$!
-          agent -p --force --trust --approve-mcps --model "$MODEL" --output-format json \
-            "$(cat .devos/builder-prompt.md)" > .devos/builder.json 2> .devos/builder.err
-          code=$?
+          # PR-29: on a usage limit, the same attempt continues on the other account at once; the
+          # partial work stays in the tree and the second run is told to continue from it.
+          used=""
+          for acc in $accounts; do
+            devos_use_cursor "$acc"; used="$acc"
+            agent -p --force --trust --approve-mcps --model "$MODEL" --output-format json \
+              "$(cat .devos/builder-prompt.md)" > .devos/builder.json 2> .devos/builder.err
+            code=$?
+            if [ "$code" != "0" ] && devos_limited .devos/builder.json .devos/builder.err "$code"; then
+              mkdir -p .devos/limits; cat .devos/builder.json .devos/builder.err > ".devos/limits/cursor-$acc.txt"
+              devos_note "Builder: Cursor account $acc reached its usage limit."
+              printf '\n\n**This attempt was started on another Cursor account, which reached its usage limit.** Its partial changes are already in the working tree (`git status`). Verify them against the fence and continue from them; do not redo or duplicate them.\n' >> .devos/builder-prompt.md
+              continue
+            fi
+            break
+          done
           kill "$hb" 2>/dev/null
+          [ "$used" != "${accounts%% *}" ] && devos_note "Builder: switched to Cursor account $used."
           echo "exit=$code" >> "$GITHUB_OUTPUT"
-          echo "builder exit code: $code"
+          echo "account=$used" >> "$GITHUB_OUTPUT"
+          echo "builder exit code: $code (Cursor account $used)"
           tail -c 2000 .devos/builder.err || true
 
       - name: Guard — builder surface
@@ -304,7 +338,8 @@ jobs:
             echo "- HEAD: \`$LOCAL\`"
             echo "- Remote comparison: \`git ls-remote origin refs/heads/$BR\` = \`$REMOTE_SHA\` → $([ "$LOCAL" = "$REMOTE_SHA" ] && echo MATCH || echo MISMATCH)"
             echo "- Builder: \`${{ steps.bm.outputs.model }}\` (effort ${{ steps.bm.outputs.effort }}, fast ${{ steps.bm.outputs.fast }}, chosen by ${{ steps.bm.outputs.source }}) ${{ steps.bm.outputs.note }}"
-            echo "- Builder exit code: ${{ steps.builder.outputs.exit || 'not run (review-only re-run)' }}"
+            echo "- Builder exit code: ${{ steps.builder.outputs.exit || 'not run (review-only re-run)' }} · Cursor account: ${{ steps.builder.outputs.account || 'none' }}"
+            [ -f .devos/accounts.md ] && cat .devos/accounts.md
             echo "- Grok ids offered by \`agent models\`: $( (grep -oE 'grok-[A-Za-z0-9.-]+' .devos/models.txt 2>/dev/null || true) | sort -u | tr '\n' ' ')"
             echo
             echo "## Changed files vs main"
@@ -349,6 +384,7 @@ jobs:
           GH_TOKEN: ${{ secrets.DEVOS_PAT || github.token }}
           STATE: ${{ steps.bs.outputs.state }}
         run: |
+          if [ -f .devos/accounts.md ]; then printf '\n\n**Accounts (PR-29)**\n%s\n' "$(cat .devos/accounts.md)" >> .devos/builder-summary.md; fi
           gh pr comment "$PRN" --repo "$REPO" --body-file .devos/builder-summary.md
           cat .devos/builder-summary.md >> "$GITHUB_STEP_SUMMARY"
           if [ "$STATE" = "quota" ]; then
@@ -439,8 +475,10 @@ jobs:
         if: steps.bs.outputs.state == 'ok' && !(inputs.reuse_review && hashFiles(format('docs/reviews/{0}-a{1}.md', env.TASK, env.ATTEMPT)) != '')
         timeout-minutes: 75
         env:
-          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_OAUTH_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CLAUDE_APIKEY_1: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_OAUTH_2: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_2 }}
+          CLAUDE_APIKEY_2: ${{ secrets.ANTHROPIC_API_KEY_2 }}
           MODEL: ${{ steps.rp.outputs.model || needs.resolve.outputs.reviewer_model }}
           TURNS: ${{ steps.rp.outputs.max_turns || needs.resolve.outputs.reviewer_max_turns }}
           EFFORT: ${{ steps.rp.outputs.effort || needs.resolve.outputs.reviewer_effort }}
@@ -454,9 +492,9 @@ jobs:
           DEVOS_BUILDER_EFFORT: ${{ steps.bm.outputs.effort }}
           DEVOS_BUILDER_FAST: ${{ steps.bm.outputs.fast }}
         run: |
-          [ -n "$OAUTH" ] && export CLAUDE_CODE_OAUTH_TOKEN="$OAUTH"
-          [ -n "$APIKEY" ] && export ANTHROPIC_API_KEY="$APIKEY"
-          [ -n "$OAUTH$APIKEY" ] || { echo "::error::set secret CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY"; exit 1; }
+          . scripts/devos/accounts.sh
+          accounts=$(devos_accounts claude)
+          [ -n "$accounts" ] || { echo "::error::set secret CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY (and optionally the _2 pair)"; exit 1; }
           for f in .devos/*.env; do [ -f "$f" ] && { set -a; . "$f"; set +a; }; done
           # PR-28: a method fix is always a deep review by the gate model, chosen from main's config.
           if [ -n "$METHOD_CHANGE" ]; then
@@ -472,19 +510,31 @@ jobs:
               echo "Claude is reviewing $TASK: $(( ($(date +%s) - t0) / 60 )) min, verdict file $f"
             done ) &
           hb=$!
-          claude -p "$(cat .devos/reviewer-prompt.md)" \
-            --model "$MODEL" \
-            --effort "${EFFORT:-high}" \
-            ${FALLBACK:+--fallback-model "$FALLBACK"} \
-            --output-format json \
-            --json-schema "$(cat devos/schemas/verdict.schema.json)" \
-            --permission-mode dontAsk \
-            --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
-            --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
-            --max-turns "$TURNS" > .devos/reviewer.json 2> .devos/reviewer.err
-          rc=$?
+          # PR-29: on a usage limit the review starts again at once on the other Claude account.
+          used=""
+          for acc in $accounts; do
+            devos_use_claude "$acc"; used="$acc"
+            claude -p "$(cat .devos/reviewer-prompt.md)" \
+              --model "$MODEL" \
+              --effort "${EFFORT:-high}" \
+              ${FALLBACK:+--fallback-model "$FALLBACK"} \
+              --output-format json \
+              --json-schema "$(cat devos/schemas/verdict.schema.json)" \
+              --permission-mode dontAsk \
+              --allowedTools "Read,Glob,Grep,Write,Edit,Bash" \
+              --disallowedTools "Bash(git push *),Bash(git commit *),Bash(git checkout *),Bash(git reset *),Bash(gh *),Bash(curl *),Bash(wget *)" \
+              --max-turns "$TURNS" > .devos/reviewer.json 2> .devos/reviewer.err
+            rc=$?
+            if devos_limited .devos/reviewer.json .devos/reviewer.err "$rc"; then
+              mkdir -p .devos/limits; cat .devos/reviewer.json .devos/reviewer.err > ".devos/limits/claude-$acc.txt"
+              devos_note "Reviewer: Claude account $acc reached its usage limit."
+              continue
+            fi
+            break
+          done
           kill "$hb" 2>/dev/null
-          echo "reviewer exit code: $rc"
+          [ "$used" != "${accounts%% *}" ] && devos_note "Reviewer: switched to Claude account $used."
+          echo "reviewer exit code: $rc (Claude account $used)"
           tail -c 2000 .devos/reviewer.err || true
           # Surface any tool calls the permission layer refused, so a denial is never silent.
           node -e 'try{const r=require("./.devos/reviewer.json");const d=r.permission_denials||[];console.log(`reviewer permission denials: ${d.length}`);for(const x of d.slice(0,20))console.log(" -",JSON.stringify(x).slice(0,300))}catch(e){console.log("reviewer.json unreadable:",e.message)}' 
@@ -543,6 +593,7 @@ jobs:
           fi
           bash scripts/devos/checks-status.sh "$(git rev-parse HEAD)"
           gh api "repos/$REPO/statuses/$(git rev-parse HEAD)" -f state="$st" -f context=devos/verdict -f description="$d" >/dev/null || true
+          if [ -f .devos/accounts.md ]; then printf '\n\n**Accounts (PR-29)**\n%s\n' "$(cat .devos/accounts.md)" >> .devos/verdict-summary.md; fi
           gh pr comment "$PRN" --repo "$REPO" --body-file .devos/verdict-summary.md
           cat .devos/verdict-summary.md >> "$GITHUB_STEP_SUMMARY"
 
@@ -650,13 +701,22 @@ jobs:
           REVIEW_ONLY: ${{ needs.cycle.outputs.park_review_only }}
           NOT_BEFORE: ${{ needs.cycle.outputs.park_not_before }}
           PR: ${{ needs.cycle.outputs.park_pr || needs.cycle.outputs.branch }}
+          IS_PRIVATE: ${{ github.event.repository.private }}
         run: |
           max_min=$(node -e 'console.log(require("./devos.config.json").resume?.inline_wait_max_minutes ?? 330)')
           now=$(date -u +%s)
           target=$(date -u -d "$NOT_BEFORE" +%s 2>/dev/null || echo $((now + 3600)))
           wait=$(( target - now ))
           if [ "$wait" -gt $(( max_min * 60 )) ]; then
-            echo "::notice title=Dev OS::$TASK resets at $NOT_BEFORE, beyond the ${max_min}-minute inline wait; devos-resume will pick it up."
+            # PR-31: a long wait is relayed by devos-wait (GitHub's schedule is best effort). On a private
+            # repository sleeping costs runner minutes, so resume.relay decides.
+            relay=$(node -e 'console.log(require("./devos.config.json").resume?.relay ?? "public")')
+            if [ "$relay" = "always" ] || { [ "$relay" = "public" ] && [ "$IS_PRIVATE" != "true" ]; }; then
+              gh workflow run devos-wait.yml --repo "$REPO" --ref main -f kind=task -f not_before="$NOT_BEFORE" -f task="$TASK" -f attempt="$ATTEMPT" -f review_only="$REVIEW_ONLY" -f pr="$PR"
+              echo "::notice title=Dev OS::$TASK resets at $NOT_BEFORE; devos-wait keeps waiting and resumes it then."
+            else
+              echo "::notice title=Dev OS::$TASK resets at $NOT_BEFORE; devos-resume (scheduled, best effort) picks it up, or run devos-resume by hand after that time."
+            fi
             exit 0
           fi
           if [ "$wait" -gt 0 ]; then

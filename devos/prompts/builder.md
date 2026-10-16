@@ -16,7 +16,8 @@ Rules for this run:
 - If the task changes anything visible, follow the `devos-compose-ui` skill: compose the approved
   design in `docs/DESIGN_SYSTEM.md` and `docs/design/`, never improvise a look.
 - **Method fix** (the fence has `- Surface: method`, PR-28): change only the method files the fence
-  names (workflows, runner scripts, guards, prompts, config) and add the precedent row it describes.
+  names (workflows, runner scripts, guards, prompts, config), update `docs/method/AUTOMATION.md` where
+  the change lands, and add the precedent row it describes.
   Never touch product code. Prove the fix with the reproduction the fence asks for. Every other task:
   never touch a method file (the runner stops the task if you do).
 - A missing secret, account or dashboard setting is not yours to fix: report it in the report's
