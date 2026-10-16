@@ -1,0 +1,42 @@
+[
+  {
+    "id": "history",
+    "nameAr": "التاريخ",
+    "nameEn": "History",
+    "descriptionAr": "تاريخ مصر والعالم العربي والعالم، للقراءة والإعارة.",
+    "descriptionEn": "The history of Egypt, the Arab world and beyond, to read or borrow.",
+    "sortOrder": 30
+  },
+  {
+    "id": "novels",
+    "nameAr": "الروايات",
+    "nameEn": "Novels",
+    "descriptionAr": "روايات عربية ومترجمة لكل الأعمار.",
+    "descriptionEn": "Arabic and translated novels for every age.",
+    "sortOrder": 10
+  },
+  {
+    "id": "poetry",
+    "nameAr": "الشعر",
+    "nameEn": "Poetry",
+    "descriptionAr": "دواوين الشعر العربي القديم والحديث.",
+    "descriptionEn": "Collections of classical and modern Arabic poetry.",
+    "sortOrder": 50
+  },
+  {
+    "id": "childrens-books",
+    "nameAr": "كتب الأطفال",
+    "nameEn": "Children's books",
+    "descriptionAr": "قصص مصوّرة وكتب أولى للقرّاء الصغار.",
+    "descriptionEn": "Picture books and first readers for young readers.",
+    "sortOrder": 20
+  },
+  {
+    "id": "science",
+    "nameAr": "العلوم",
+    "nameEn": "Science",
+    "descriptionAr": "كتب علمية مبسّطة ومراجع للطلاب.",
+    "descriptionEn": "Popular science and reference books for students.",
+    "sortOrder": 40
+  }
+]

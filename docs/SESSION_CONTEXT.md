@@ -1,6 +1,6 @@
 # PILOT — Session context
 
-**Phase:** P05 Staff editor on Supabase (J4) · **Last verdict:** T17 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
+**Phase:** P06 Book types and covers (J4) · **Last verdict:** T18 PASS a1 · **Open carry-forwards:** CF-001, CF-002, CF-004, CF-006
 
 ## Done steps
 
@@ -24,8 +24,9 @@
 | T15 | Staff invitation: confirm link, set password, then TOTP | PASS a1 — docs/reviews/T15-a1.md |
 | T16 | Notices editor: create, edit, publish, unpublish; public pages refresh by tag | PASS a1 — docs/reviews/T16-a1.md |
 | T17 | Opening-hours editor: add, change and remove periods | PASS a1 — docs/reviews/T17-a1.md |
-| T18 | Whole-zone end-to-end proof against the CI database | built — awaiting verdict and the `G-Staff-editor` merge |
+| T18 | Whole-zone end-to-end proof against the CI database | PASS a1 — docs/reviews/T18-a1.md (gate G-Staff-editor signed by the human's merge) |
+| T19 | Firestore module: rules denying every client, rules tests, server-only reader, book-types seed | built — awaiting verdict |
 
 ## Next action
 
-T18 is built on `task/T18` and awaits the review (risk 2, gate `G-Staff-editor`; a gate task is always deep). It adds no migration. A PASS stops at the human gate, and the human's merge signs `G-Staff-editor`.
+T19 is built on `task/T19` and awaits the deep review (risk 3). Its PASS stops at the human gate because it adds the Firestore rules file (PR-26): the human reviews the rules and merges, and with `DEVOS_FIREBASE=true` the production deploy then applies the rules and the seed before the app. Next is T20: the public book-types page reads the seed from Firestore.

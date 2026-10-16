@@ -156,3 +156,9 @@ Staff at AAL2 see the week from Saturday to Friday and add, change and remove an
 ## 2026-10-12 — T18 whole-zone end-to-end proof, attempt 1 (builder, Grok 4.7)
 
 `e2e/staff-zone.spec.ts` runs the `operator` zone against the local database with no application change: an invited account sets a password and enrols TOTP, a `LibraryNotice` is published and then unpublished while five anonymous renders overlap, REST writes without the staff claim at AAL2 are refused, and Tuesday's close follows on both home pages before it is restored. The four public routes stay `○`, cookieless and formless. `pnpm check` exits 0. Awaiting verdict and the human's merge of gate `G-Staff-editor`.
+
+---
+
+## 2026-10-16 — T19 Firestore module, attempt 1 (builder, Grok 4.7)
+
+The Firestore module is on. `firestore.rules` denies every client, proven by 10 emulator tests, and `firebase/seed/book_types.json` holds 5 synthetic book types. The server reads them with `firebase-admin` in `src/lib/firebase/` (each file starts with `import "server-only"`). Nothing visible changes, and no page imports the reader yet. `pnpm check` exits 0. Awaiting the deep review; a PASS stops at the human gate.
