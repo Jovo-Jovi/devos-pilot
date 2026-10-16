@@ -71,12 +71,13 @@ test("cover placeholders sit at the inline start and no image is shown", async (
       await expect(covers.nth(index)).toHaveAttribute("aria-hidden", "true");
     }
     await expect(page.locator("ol.book-types img")).toHaveCount(0);
-    const coverBox = await page
-      .locator("li.book-type >> nth=0 >> .cover")
-      .boundingBox();
-    const textBox = await page
-      .locator("li.book-type >> nth=0 >> .cover + div")
-      .boundingBox();
+    const entry = page.locator("li.book-type").first();
+    const cover = entry.locator(".cover");
+    const text = entry.locator(":scope > div");
+    await expect(cover).toBeVisible();
+    await expect(text).toBeVisible();
+    const coverBox = await cover.boundingBox();
+    const textBox = await text.boundingBox();
     if (coverBox === null || textBox === null) {
       throw new Error("missing cover or text box");
     }
@@ -98,7 +99,7 @@ test("the home page links to the book-types page", async ({ page }) => {
     await expect(link).toHaveAttribute("href", `/${locale}/book-types`);
     await link.click();
     await expect(page).toHaveURL(new RegExp(`/${locale}/book-types$`));
-    await expect(page.locator("h1")).toHaveText(
+    await expect(page.locator("h1.page-title")).toHaveText(
       catalogues[locale].bookTypes.title,
     );
   }
